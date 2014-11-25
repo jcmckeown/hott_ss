@@ -408,7 +408,7 @@ Proof.
   auto.
 Defined.
 
-Lemma nCkSubdiv { k l n } { T : Type } :
+Lemma nCkSubdiv { k } ( l : nat) { n } { T : Type } :
   nCkList k n T -> ( nCkList l n (nCkList k l T ) ).
 Proof.
   intro.

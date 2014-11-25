@@ -147,3 +147,12 @@ Proof.
   auto.
   apply IHx.
 Defined.
+
+Fixpoint nCAll { x : nat } : nCk x x.
+Proof.
+  induction x.
+  exact tt.
+  exists x.
+  split. auto.
+  apply lt_S.
+Defined.
