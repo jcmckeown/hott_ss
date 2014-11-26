@@ -75,3 +75,24 @@ Proof.
    and a machine could write it;
    so, someone, start building Ltacs for eliminating thin homotopy *)
 Qed.
+
+(** We don't need cellClosure to define these; it's more why these are correct (eventually) *)
+
+Record mapsComplex :=
+ { mc_names : nat -> Type ;
+   mc_maps : forall n, mc_names (S n) -> nCkList (mc_names n) n (S n)
+   }.
+
+Definition maps_adj (M : mapsComplex) : Adjacency :=
+  Build_Adjacency (mc_names M) (fun k => valPath (mc_maps M k)).
+
+(** This promotes a mapsComplex to a coloured simplicial set *)
+Definition IsCSimplicialSet (M : mapsComplex) :=
+  forall n, IsEquiv ( topFacet (maps_adj M) n).
+
+(** an ordinary semisimplicial set... *)
+Record SimplicialSet := {
+  SS_M : mapsComplex;
+  SS_Simpl : IsCSimplicialSet SS_M;
+  SS_Contr : Contr (mc_names SS_M 0)
+}.
