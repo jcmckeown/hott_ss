@@ -12,10 +12,10 @@ Record Adjacency : Type := {
     forall n, (adj_Names (S n)) -> (nCkList (adj_Names n) n (S n)) -> Type
   }.
 
-Record Cells (A : Adjacency) (n : nat) :={
+Definition Cells (A : Adjacency) (n : nat) : Type :={
   cell_facets : forall k, 
-    nCkList (adj_Names A k) k n;
-  cell_glue : forall k, forall z : nCk n (S k),
+    nCkList (adj_Names A k) k n &
+ forall k, forall z : nCk n (S k),
     (adj_Rels A) _ (fun_list (cell_facets (S k)) z)
       (fun_list (nCkSubdiv (S k) (cell_facets k)) z )
       }.
@@ -27,17 +27,16 @@ Proof.
   exact ( fun_list (facets n) nCAll).
 Defined.
 
-Definition boundary (A : Adjacency) (n : nat) (C : Cells A (S n)) :
-  nCkList (Cells A n) n (S n).
+Definition skel { A : Adjacency } (k: nat) { n : nat } (C : Cells A n) :
+  nCkList (Cells A k) k n.
 Proof.
   destruct C as [ facets glue ].
   apply list_fun.
   intro cx.
-  exists ( fun k => (fun_list (nCkSubdiv n (facets k)) cx) ).
+  exists ( fun k => (fun_list (nCkSubdiv _ (facets k)) cx) ).
   intros.
   rewrite nCkEqn.
-  assert ( help := fun k => fun cz => glue k (nCkCompose cx cz) ).
-  refine ( transport _ _ (help _ z)).
+  refine ( transport _ _ (glue _ (nCkCompose cx z))).
   unfold nCkSubdiv.
     repeat progress ( rewrite fl_inv ).
     apply nCkLEqn.
@@ -45,5 +44,34 @@ Proof.
     repeat progress ( rewrite fl_inv ).
     apply ap.
     symmetry.
-    apply nCkAssoc.
+    exact (nCkAssoc cx z cz).
 Defined.
+
+Definition boundary (A : Adjacency) (n : nat) (C : Cells A (S n)) :=
+  skel n C.
+
+Definition SSClosure (A : Adjacency) : Adjacency := 
+ Build_Adjacency ( Cells A ) ( fun k => valPath (boundary A k) ).
+
+Definition cellClosure (A : Adjacency) :
+  forall n,
+    (Cells A n) -> (Cells (SSClosure A) n).
+Proof.
+  intros n C.
+  exists ( fun k => skel k C).
+  simpl.
+  intros k [ l [ cx y ]].
+  unfold valPath.
+  unfold boundary.
+  unfold nCkSubdiv.
+  simpl. rewrite depS_inv.
+  rewrite fl_inv. simpl.
+  apply nCkLEqn.
+    intro.
+    rewrite fl_inv.
+  destruct A as [ Fs Gs ].
+  unfold adj_Rels. unfold adj_Names.
+  admit. (** There is a proof, hinging on nCkAssoc and dec_eq_nCk,
+   and a machine could write it;
+   so, someone, start building Ltacs for eliminating thin homotopy *)
+Qed.

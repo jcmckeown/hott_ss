@@ -478,6 +478,13 @@ Proof.
   exact ( fun x => (depT_nCk P x) -> (depT_nCk Q x)).
 Defined. *)
 
+Definition nCkKonst { T } (t : T)  k n : nCkList T k n.
+Proof.
+  apply list_fun.
+  intro.
+  exact t.
+Defined.
+
 Lemma nCkApply { k n : nat } ( P Q : Type ) :
   nCkList P k n -> (nCkList ( P -> Q) k n) -> nCkList Q k n.
 Proof.

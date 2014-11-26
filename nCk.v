@@ -156,3 +156,25 @@ Proof.
   split. auto.
   apply lt_S.
 Defined.
+
+Lemma strongHInduction ( P : nat -> Type ) :
+  ( forall n : nat, (forall k, lt n k -> P k) -> P n) ->
+    forall k, P k.
+Proof.
+  intros H k.
+  revert P H.
+  induction k.
+  intros.
+    apply H.
+    intros k [].
+  intros.
+    apply (IHk (fun n => P (S n))).
+    intros n HP.
+   apply H.
+    intros l ord.
+    destruct l.
+      apply H.
+      intros _ [].
+    apply HP.
+      auto.
+Defined.
