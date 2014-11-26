@@ -2,20 +2,28 @@ Require Import HoTT.
 Require Import Nat.
 Require Import nCk.
 
+Local Open Scope path_scope.
+
 Definition LT (m : nat) := sigT (lt m).
 
-Definition LT_S {m : nat} : LT m -> LT (S m).
-Proof.
-  intros [k ord].
-  exists k.
-  exact ( lt_trans (lt_S m) ord).
-Defined.
+Definition LT_S {m : nat} ( x : LT m) : LT (S m) :=
+  ( x .1 ; lt_trans (lt_S m) x.2 ).
 
 Definition LT_Top (m : nat) : LT (S m) :=
   existT _ m (lt_S m).
 
 Definition idx { m : nat }(k : LT m) : nat :=
   projT1 k.
+
+Definition LT_plus { l : nat } : LT l -> LT (S l).
+Proof.
+  intros [ k ordk ].
+  exists (S k).
+  auto.
+Defined.
+
+Definition LT_z (l : nat) : LT (S l) :=
+  ( 0 ; tt ).
 
 Definition lt_Lt { m : nat } (k l : LT m) :=
   lt ( idx k ) (idx l).
@@ -240,22 +248,36 @@ Proof.
    apply hset_lt.
 Defined.
 
+Fixpoint nat_cx_lt { n k : nat } : nCk n k -> LT k -> nat :=
+  match k with
+  | O => fun _ => fun z : LT 0 => match z with ( q ; p ) => match p : lt 0 q with end end
+  | S k' =>
+    fun cx : nCk n (S k') =>
+      match cx with
+      ( m ; ( cx' , ord)) =>
+      fun l : LT (S k') =>
+        match l with ( l' ; ordl ) => 
+          match ( @opt_ltS k' l' ordl) with
+          | inl _ => m
+          | inr ordq => 
+            nat_cx_lt cx' (l' ; ordq ) end end end end.
+
 Lemma map_cx { n k : nat } : nCk n k -> LT k -> LT n.
 Proof.
-  revert n.
+  intros.
+  exists (nat_cx_lt X X0).
+  revert n X X0.
   induction k.
   intros.
-    destruct X0 as [ _ []].
+    destruct X0 as [ _ [] ].
   intros.
-    destruct X as [ l [ cx ord ]].
-    destruct X0 as [ m ordm ].
-    destruct ( dec_eq_nat m k ).
-      exists l. auto.
-        destruct (opt_ltS ordm).
-          destruct p. destruct (n0 idpath).
-      destruct ( IHk l cx ( m ; l0 ) ) as [ ans ordA ].
-      exists ans.
-      refine ( lt_trans ord ordA ).
+    destruct X0.
+    simpl.
+    destruct X as [ m [ cx nm ]].
+    destruct (opt_ltS l).
+    auto.
+    apply (lt_trans nm).
+    apply IHk.
 Defined.
 
 Lemma ordM_cx { n k : nat } : nCk n k -> ordMap n k.
@@ -272,30 +294,20 @@ Proof.
     unfold lt_Lt in X0.
       simpl in X0.
     destruct X as [ l [ cx ord ] ].
-    simpl.
-    destruct (dec_eq_nat k0 k).
-     destruct (dec_eq_nat k1 k). (** actually only one consistent case*)
-      destruct p0.
-        assert ( lt k0 k0 ).
-         exact ( transport (lt k0) (inverse p) X0).
-         destruct ( nLt_xx X ).
+    unfold map_cx.
+    unfold lt_Lt. simpl.
+   destruct (opt_ltS ord0 ).
+    destruct p.
      destruct ( opt_ltS ord1 ).
-      destruct ( n0 (inverse p0)).
-      destruct ( map_cx cx (k1 ; l0) ).
-      exact l1. (** we've dealt with all the sub-cases of (k0 = k) *)
-     destruct ( opt_ltS ord0 ).
-        destruct ( n0 (inverse p)).
-     destruct ( dec_eq_nat k1 k).
-     (** S k > k0 > k1 = k => contradiction *)
-        assert ( wrong := lt_strongTrans ord0 X0 ).
-          destruct p.
-          destruct (nLt_xx wrong).
-     destruct (opt_ltS ord1).
-        destruct ( n1 (inverse p)).
-     assert ( ans := IHk _ cx ( k0 ; l0) (k1 ; l1 ) X0).
-    destruct ( map_cx cx (k0 ; l0 )).
-    destruct ( map_cx cx (k1; l1)).
-    auto.
+      destruct p. destruct (nLt_xx X0).
+     destruct k. destruct X0.
+     destruct l. destruct (lt_nck cx).
+     set (help := (map_cx cx (k1 ; l0)) .2).
+      auto.
+    destruct ( opt_ltS ord1 ).
+      destruct p.
+      destruct ( nLt_xx (lt_trans X0 l0)).
+    exact (IHk _ cx (k0 ; l0) (k1 ; l1) X0 ).
 Defined.
 
 Definition nCkCompose { k l m } : nCk k l -> nCk l m -> nCk k m.
@@ -303,4 +315,114 @@ Proof.
   intros.
   apply cx_ordmap.
   exact (ordCompose (ordM_cx X) (ordM_cx X0)).
+Defined.
+
+Lemma map_idx_eq { k l m } { cx : nCk m l } { ord : lt k m }:
+forall x : LT l,
+idx (map_cx cx x) = idx (@map_cx k (S l) (m ; (cx, ord)) (LT_S x)).
+Proof.
+  intros.
+    unfold idx. unfold map_cx. unfold projT1.
+  revert k m cx ord x.
+  destruct l.
+    intros _ _ _ _ [ _ []].
+  intros.
+    destruct x as [ n ordn ].
+      unfold LT_S. simpl projT1. simpl projT2.
+      destruct n. simpl. destruct ordn. auto.
+    unfold nat_cx_lt.
+    destruct ( opt_ltS (lt_trans (lt_S _ ) ordn)).
+      destruct ( nLt_xx (transport _ (p ^) ordn)).
+    destruct cx as [ p [ cx mp ]].
+      assert ( w : ordn = l0 ). apply hset_lt. destruct w.
+     destruct (opt_ltS ordn). auto.
+     auto.
+Defined.
+    
+Lemma eq_map_cx { k l } {a b : nCk k l} :
+  map_cx a == map_cx b ->
+  a = b.
+Proof.
+  intro.
+  assert ( Y : nat_cx_lt a == nat_cx_lt b ).
+    intro.
+    exact ( base_path ( X x )).
+  clear X.
+  revert k a b Y.
+  induction l.
+  intros.
+    destruct a, b. auto.
+  intros.
+    destruct a as [ m [ cx orda ]].
+    destruct b as [ n [ cy ordb ]].
+   destruct k. destruct orda.
+   assert ( h1 := Y ( l ; lt_S l )).
+    simpl in h1.
+    destruct ( opt_ltS (lt_S l) ). Focus 2. destruct (nLt_xx l0).
+      destruct h1. apply ap.
+      apply path_prod ; try apply hset_lt. simpl.
+    apply IHl.
+      intro.
+      refine (_ @ Y (LT_S x) @ _ ).
+      apply map_idx_eq.
+      symmetry. apply map_idx_eq.
+Defined.
+
+Lemma om_cx_om { k l } ( w : ordMap k l ) :
+  (ordM_cx (cx_ordmap w)) .1 == w .1 .
+Proof.
+  unfold ordM_cx. unfold projT1.
+    fold ( w .1 ).
+    intro m.
+    apply eq_m_eq.
+    unfold idx. unfold map_cx. unfold projT1.
+     fold ( w .1 ).
+     fold ( (w .1 m ) .1 ).
+  destruct w as [ fw ordw ].
+  revert k fw ordw m.
+  induction l.
+  intros.
+  destruct m as [ _ []].
+  intros.
+    destruct m as [ m lm ].
+    unfold projT1 at 2.
+    destruct k.
+      destruct ( fw (LT_z l) ) as [ _ []].
+    simpl.
+    destruct ( opt_ltS lm ). destruct p.
+    unfold LT_Top.
+      assert ( lm = lt_S l ).
+        apply hset_lt.
+      destruct X. auto.
+    unfold compose. unfold idx.
+    refine ( IHl _ _ _ (m ; l0) @ _ ).
+    unfold projT1.
+    refine ( base_path ( _ : fw (LT_S  (m ; l0)) = fw ( m ; lm )) ).
+    apply ap.
+    unfold LT_S . simpl projT1.
+    apply ap.
+    apply hset_lt.
+Defined.
+  
+Lemma nCkAssoc { k l m n } ( f : nCk k l ) (g : nCk l m) (h : nCk m n) :
+  nCkCompose f (nCkCompose g h) = nCkCompose (nCkCompose f g) h.
+Proof.
+  unfold nCkCompose.
+  path_via 
+    (cx_ordmap (ordCompose (ordM_cx f) 
+      (ordCompose (ordM_cx g) (ordM_cx h)))).
+    apply eq_cx_ordmap.
+    intro.
+    path_via ( (ordM_cx f) .1 
+      (( ordM_cx (cx_ordmap (ordCompose (ordM_cx g) (ordM_cx h)))) .1 x )).
+    path_via ( (ordM_cx f) .1 ( (ordCompose (ordM_cx g) (ordM_cx h)) .1 x)).
+    apply ap.
+    apply om_cx_om.
+  apply eq_cx_ordmap.
+  intro.
+  path_via 
+     ((ordM_cx (cx_ordmap (ordCompose (ordM_cx f) (ordM_cx g)))).1 ((ordM_cx h) .1 x)).
+  path_via ( (ordCompose (ordM_cx f) (ordM_cx g)) .1 ((ordM_cx h) .1 x)).
+  symmetry.
+  apply om_cx_om.
 Defined.

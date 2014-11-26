@@ -10,23 +10,11 @@ Fixpoint lType (l : nat) : Type :=
  | O => Unit
  | S l' => Type * (lType l') end.
 
-Lemma lSect {l : nat} (lt : lType l) : Type.
-Proof.
-  induction l.
-  exact Unit.
-  destruct lt.
-    exact (T * (IHl l0)).
-Defined.
-
-Definition LT_plus { l : nat } : LT l -> LT (S l).
-Proof.
-  intros [ k ordk ].
-  exists (S k).
-  auto.
-Defined.
-
-Definition LT_z (l : nat) : LT (S l) :=
-  ( 0 ; tt ).
+Fixpoint lSect { l : nat } ( T : lType l) : Type :=
+  match l , T return Type with
+  | O , tt => Unit
+  | S l' , ( T0 , T') => 
+     ( T0 * lSect T' ) end.
 
 Lemma lT_depT {l : nat} (P : LT l -> Type) : lType l.
 Proof.
@@ -62,8 +50,7 @@ Proof.
   destruct n as [ n ord ].
   destruct n.
     simpl.
-    apply ap. refine ( path_sigma' (lt _) 1 _).
-      apply hset_lt.
+    apply ap. destruct ord. auto.
   exact ( IHl (fun z => Q (LT_plus z)) (n ; ord) ).
 Defined.
 
@@ -80,7 +67,7 @@ Defined.
 Lemma lS_depS' {l : nat} { T : lType l } ( p : forall n, dep_lT T n ) :
   lSect T.
 Proof.
-  induction l.
+  induction l. destruct T.
     exact tt.
   destruct T as [ T0 T ].
   split.
@@ -119,9 +106,8 @@ Proof.
   intros.
   destruct p as [ t p ].
     destruct k as [ k ordk ].
-      destruct k.
-        refine (transport T _ t).
-          unfold LT_z. apply ap. apply hset_lt.
+      destruct k. destruct ordk.
+      auto.
   exact  (IHl (T o LT_plus) p (k ; ordk) ).
 Defined.
 
@@ -135,9 +121,7 @@ Proof.
   intros.
   destruct k as [ k ord ]. destruct k.
     simpl. unfold LT_z. destruct ord.
-    refine ( @transport _ ( fun X : (LT_z l = LT_z l)
-               => transport P X (p (LT_z l)) = p (LT_z l)) idpath _ _ idpath ).
-    apply (hset_decidable dec_eq_mval).
+    auto.
   exact (IHl (P o LT_plus) (fun z => p (LT_plus z)) (k ; ord)) .
 Defined.
 
@@ -226,12 +210,115 @@ Proof.
   exact ( fun x => inr (depS_lS p x)).
 Defined.
 
-Fixpoint nCkType (k n : nat) : Type :=
-  match k with
- | O => Type
- | S k' => lSect ( @lT_depT n (compose (nCkType k') idx ) ) end.
+Lemma listEqn { l : nat } { P : LT l -> Type } { p q : forall k , P k }:
+  ( p == q ) -> ( lS_depS p = lS_depS q ).
+Proof.
+  revert P p q.
+  induction l.
+  intros. auto.
+  intros.
+  apply path_prod. apply X.
+  simpl. apply IHl.
+    intro.
+    apply X.
+Defined.
 
-Lemma nCkT_depT { k n : nat } : 
+Lemma listEqn' { l : nat } { P : lType l } { p q : lSect P } :
+  ( depS_lS p == depS_lS q ) -> p = q .
+Proof.
+  revert P p q.
+  induction l.
+  intros. destruct P. destruct p, q. auto.
+  intros.
+  destruct P as [ P0 P ].
+  destruct p as [ p0 p ].
+  destruct q as [ q0 q ].
+  apply path_prod.
+    simpl.
+    exact ( X ( 0 ; tt )).
+    simpl.
+    apply IHl.
+    intros [ k ord ].
+    set ( Xh := X ( LT_plus ( k ; ord )) ).
+    auto.
+Defined.
+
+Lemma listEqn'' { l : nat } { P : LT l -> Type } { p q : lSect (lT_depT P) } :
+  ( depS_lS' p == depS_lS' q ) -> p = q.
+Proof.
+  revert P p q.
+  induction l.
+  intros.
+    destruct p, q. auto.
+  intros.
+    destruct p as [ p0 p ].
+    destruct q as [ q0 q ].
+    apply path_prod.
+      apply X.
+      simpl.
+      apply IHl.
+      intros [ k ord ].
+      refine ( X ( LT_plus ( k ; ord ) )).
+Defined.
+
+Fixpoint nCkList (T : Type) (k n : nat) : Type :=
+  match k with
+ | O => T
+ | S k' => lSect ( @lT_depT n (compose (nCkList T k') idx ) ) end.
+
+Fixpoint fun_list { T : Type } {k n : nat} : 
+  nCkList T k n -> nCk n k -> T :=
+  match k with
+  | O => fun X cx => X
+  | S k' => fun ( X : nCkList T (S k') n) (cx : nCk n (S k')) =>
+    let ( l , p) := cx in
+    let ( cx' , ord ) := p in
+    fun_list ( depS_lS' X (l ; ord)) cx' end.
+
+Fixpoint list_fun { T : Type }{ k n : nat } : 
+  (nCk n k -> T) -> nCkList T k n :=
+  match k with
+  | O => (fun f : nCk n 0 -> T => (f tt))
+  | S k' => (fun f : nCk n (S k') -> T =>
+    lS_depS (fun l : LT n => list_fun (fun z => f ((l.1) ; (z , l.2 ))))) end.
+
+Lemma fl_inv { T : Type } { k n : nat }
+  ( X : nCk n k -> T ):
+   forall y, fun_list (list_fun X) y = X y.
+Proof.
+  revert T n X.
+  induction k.
+  intros.
+    destruct y.
+    auto.
+  intros.
+    destruct y as [ l [ cx ord ]].
+    simpl.
+    refine ( _ @ IHk T l (fun z => X ( l ; (z,ord))) cx).
+    rewrite depS_inv. destruct n.
+      destruct ord.
+    auto.
+Defined.
+
+Lemma lf_inv { T : Type } { k n : nat }:
+  forall X : nCkList T k n, 
+    list_fun (fun_list X) = X.
+Proof.
+  revert T n.
+  induction k.
+  intros.
+    auto.
+  intros.
+  apply listEqn''.
+  intros [ l ord ].
+    simpl.
+    rewrite depS_inv. simpl.
+  refine ( _ @ IHk _ _ _ ).
+  destruct n. destruct ord.
+  auto.
+Defined. 
+
+(* Lemma nCkT_depT { k n : nat } : 
   (nCk n k -> Type) -> (nCkType k n).
 Proof.
   revert n.
@@ -389,36 +476,54 @@ Lemma nCkMap { k n : nat } (P Q : nCkType k n) : nCkType k n.
 Proof.
   apply nCkT_depT.
   exact ( fun x => (depT_nCk P x) -> (depT_nCk Q x)).
-Defined.
+Defined. *)
 
-Lemma nCkApply { k n : nat } ( P Q : nCkType k n ) :
-  nCkSectn P -> (nCkSectn (nCkMap P Q)) -> nCkSectn Q.
+Lemma nCkApply { k n : nat } ( P Q : Type ) :
+  nCkList P k n -> (nCkList ( P -> Q) k n) -> nCkList Q k n.
 Proof.
   intros.
-  apply nCkS_depS'.
-  intro.
-  set ( help_f := depS_nCkS' X0 cx).
-  set ( help_p := depS_nCkS X cx).
-  auto.
+  apply list_fun.
+  exact (fun cx => (fun_list X0 cx) (fun_list X cx)).  
 Defined.
 
-Lemma tauto { k l } : nCkList k l (nCk l k).
+Lemma tauto  k l : nCkList (nCk l k) k l.
 Proof.
-  apply nCkS_depS.
+  apply list_fun.
   auto.
 Defined.
 
 Lemma nCkSubdiv { k } ( l : nat) { n } { T : Type } :
-  nCkList k n T -> ( nCkList l n (nCkList k l T ) ).
+  nCkList T k n -> ( nCkList (nCkList T k l ) l n  ).
 Proof.
   intro.
-  apply nCkS_depS.
-  intros.
-  apply nCkS_depS.
-  intro.
-  assert ( ans := depS_nCkS X ( nCkCompose x x0) ).
-  unfold nCkMonoType in ans.
-    rewrite depT_nCk_inv in ans.
-  auto.
+  apply list_fun.
+  intros cx.
+  apply list_fun.
+  intro cy.
+  exact ( fun_list X (nCkCompose cx cy)).
 Defined.
 
+Lemma nCkEqn { k l n } { T : Type } ( P : nCkList T k n ) :
+  forall cx, forall cy, 
+    fun_list (fun_list (nCkSubdiv l P) cx) cy = fun_list P (nCkCompose cx cy).
+Proof.
+  intros.
+  unfold nCkSubdiv.
+  rewrite fl_inv. rewrite fl_inv. auto.
+Defined.
+
+Lemma nCkLEqn { k n } { T : Type } ( p q : nCkList T k n ) :
+  (fun_list p == fun_list q) -> p = q.
+Proof.
+  revert n T p q.
+  induction k.
+  intros.
+   exact (X tt).
+  intros.
+   apply listEqn''.
+   intros [ l ord ].
+   apply IHk.
+   intro.
+   path_via ( fun_list p ( l ; ( x, ord  )) ).
+   path_via ( fun_list q ( l ; ( x, ord ))).
+Defined.
