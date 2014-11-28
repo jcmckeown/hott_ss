@@ -14,6 +14,16 @@ Defined.
 Definition LT_Top (m : nat) : LT (S m) :=
   existT _ m (lt_S m).
 
+Definition LT_plus { l : nat } : LT l -> LT (S l).
+Proof.
+  intros [ k ordk ].
+  exists (S k).
+  auto.
+Defined.
+
+Definition LT_z (l : nat) : LT (S l) :=
+  ( 0 ; tt ).
+
 Definition idx { m : nat }(k : LT m) : nat :=
   projT1 k.
 

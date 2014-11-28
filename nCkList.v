@@ -1,7 +1,8 @@
-Require Import HoTT.
-Require Import Nat.
-Require Import ordmap.
-Require Import nCk.
+Require Import HoTT
+ Nat
+ nCk
+ ordmap
+ lList.
 
 Open Scope path_scope.
 
@@ -17,16 +18,6 @@ Proof.
   destruct lt.
     exact (T * (IHl l0)).
 Defined.
-
-Definition LT_plus { l : nat } : LT l -> LT (S l).
-Proof.
-  intros [ k ordk ].
-  exists (S k).
-  auto.
-Defined.
-
-Definition LT_z (l : nat) : LT (S l) :=
-  ( 0 ; tt ).
 
 Lemma lT_depT {l : nat} (P : LT l -> Type) : lType l.
 Proof.
