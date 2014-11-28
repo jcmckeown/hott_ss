@@ -1,4 +1,4 @@
-**/makefile
+makefile
 *.vo
 *.d
 *.glob
