@@ -141,6 +141,16 @@ Defined.
 
 Coercion nCkS_T : nCkType >-> nCkSect.
 
+Fixpoint nCkT_S { n k } : nCkList Type n k -> nCkType n k.
+Proof.
+  destruct n.
+    destruct k. intros. exact X.
+      intros. exact tt.
+    destruct k. intros. exact X.
+      intros.
+      exact ( nCkT_S _ _ (fst X) , nCkT_S _ _ (snd X)).
+Defined.
+
 Fixpoint nCkSig {n k} : 
   forall {A : nCkType n k} 
   (P : nCkSect (nCkMap A (nCkLT Type n k))), nCkType n k.
@@ -310,3 +320,13 @@ Proof.
      exact (nCkRSubdivide _ _ (S l) _ (snd X)).
 Defined.
 
+Fixpoint nCAll n : nCk n n :=
+  match n with
+| O => tt
+| S n' => inl (nCAll n') end.
+
+Fixpoint nCTop  {A : Type} { n : nat } : nCkList A n n -> A :=
+  match n with
+  | O => fun X => X
+  | S n' => fun X : (nCkList A n' n') * (nCkList A n' (S n')) => 
+    nCTop (fst X) end.

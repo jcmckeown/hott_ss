@@ -1,6 +1,159 @@
 Require Import HoTT
- Nat
- ordmap.
+ Nat.
+
+Fixpoint lt (n k : nat) : Type :=
+  match n with
+  | O => Empty
+  | S n' => match k with
+    | O => Unit
+    | S k' => (lt n' k') end end.
+
+Fixpoint lt_b (n k : nat) : Bool :=
+  match n with
+  | O => false
+  | S n' => match k with
+    | O => true
+    | S k' => (lt_b n' k') end end.
+
+Lemma hset_lt (n k : nat) : IsHProp (lt n k).
+Proof.
+  revert k.
+  induction n.
+  intros k x y.
+    destruct x.
+  intros k x y.
+    destruct k.
+      simpl in x, y.
+        destruct x.
+        exists (eta_unit _).
+        intro. 
+        apply path2_contr.
+      simpl in x, y.
+      apply IHn.
+Defined.
+
+Lemma lt_trans {k l m : nat} : lt k l -> lt l m -> lt k m.
+Proof.
+  revert l m.
+  induction k.
+  intros.
+  destruct X.
+  intros.
+    destruct l.
+      destruct X0.
+    destruct m.
+      exact tt.
+      exact (IHk l m X X0).
+Defined.
+
+Lemma ltz_lt { k l } : lt k l -> lt k 0.
+Proof.
+  destruct k.
+  intros [].
+  intros. exact tt.
+Defined.
+
+Lemma lt_strongTrans { k l m } : lt k l -> lt l m -> lt k (S m).
+Proof.
+  revert k l.
+  induction m.
+  intros.
+    destruct k.
+      destruct X.
+    destruct l. destruct X0.
+    simpl.
+    simpl in X.
+    exact ( ltz_lt X ).
+  intros.
+    destruct k. destruct X.
+    destruct l. destruct X0.
+    simpl in *.
+    exact (IHm _ _ X X0).
+Defined.
+
+Fixpoint lt_S (k : nat) : lt (S k) k :=
+  match k with
+| O => tt
+| S k' => (lt_S k') end.
+
+Lemma opt_ltS { m n } : lt (S m) n -> ( m = n ) \/ ( lt m n ).
+Proof.
+  revert n.
+  induction m.
+  intros.
+    destruct n.
+    auto.
+    destruct X.
+  intros.
+    destruct n.
+    right. auto.
+    destruct ( IHm n X ).
+    left. exact (ap S p).
+    right. auto.
+Defined.
+
+Lemma nLt_xx { x : nat } : lt x x -> Empty.
+Proof.
+  induction x.
+  auto.
+  apply IHx.
+Defined.
+
+Definition LT (m : nat) := sigT (lt m).
+
+Definition LT_S {m : nat} : LT m -> LT (S m).
+Proof.
+  intros [k ord].
+  exists k.
+  exact ( lt_trans (lt_S m) ord).
+Defined.
+
+Definition LT_Top (m : nat) : LT (S m) :=
+  existT _ m (lt_S m).
+
+Definition LT_plus { l : nat } : LT l -> LT (S l).
+Proof.
+  intros [ k ordk ].
+  exists (S k).
+  auto.
+Defined.
+
+Definition LT_z (l : nat) : LT (S l) :=
+  ( 0 ; tt ).
+
+Definition idx { m : nat }(k : LT m) : nat :=
+  projT1 k.
+
+Definition lt_Lt { m : nat } (k l : LT m) :=
+  lt ( idx k ) (idx l).
+
+Definition lt_Lt_trans { n : nat } { k l m : LT n } :
+ lt_Lt k l -> lt_Lt l m -> lt_Lt k m.
+Proof.
+  apply lt_trans.
+Defined.
+
+Lemma eq_m_eq { n : nat } { k l : LT n } :
+  idx k = idx l -> k = l.
+Proof.
+  intro.
+  destruct k. destruct l. simpl in H.
+  destruct H. apply ap.
+  apply hset_lt.
+Defined.
+
+Lemma dec_eq_mval { l : nat } : decidable_paths (LT l).
+Proof.
+  intros x y.
+  destruct ( dec_eq_nat (idx x) (idx y) ).
+    left.
+    apply eq_m_eq. auto.
+    right.
+    intro. apply n.
+    apply ap. auto.
+Defined.
+
+(* ~~~~~ *)
 
 Fixpoint lType (l : nat) : Type :=
   match l with
