@@ -60,3 +60,51 @@ Proof.
   exact ( f _ s0 , lS_map l' _ _ (fun z => f ( LT_plus z)) s' ).
 Defined.
 
+Fixpoint lT_map { l : nat } :
+  forall { U : LT l -> Type } (f : forall z, U z -> Type) ,
+  ( lSect ( lT_fun U ) ) -> lType l.
+Proof.
+  destruct l as [ | l' ].
+  intros U f s.
+  exact tt.
+  intros U f [ s0 s' ].
+  exact ( f _ s0 , lT_map l' _ (fun z => f (LT_plus z)) s').
+Defined.
+
+Fixpoint lS_tMap { l : nat } :
+ forall {U : LT l -> Type }
+  { f : forall z, U z -> Type }
+  { s : forall z, U z  }
+  (h : lSect ( lT_fun (fun z => f z ( s z )) )),
+ lSect ( lT_map f (lS_fun s) ).
+Proof.
+  destruct l as [ | l' ].
+  intros.
+  exact tt.
+  intros.
+  exact ( fst h , lS_tMap _ _ (fun z => f (LT_plus z)) (fun z => s (LT_plus z)) (snd h) ).
+Defined.
+
+Fixpoint lS_Mapt { l : nat } :
+  forall { U : LT l -> Type }
+   { f : forall z, U z -> Type }
+   { s : forall z, U z } 
+  ( h : lSect (lT_map f (lS_fun s))),
+  lSect (lT_fun (fun z => f z ( s z))).
+Proof.
+  destruct l as [ | l' ].
+  intros.
+  exact tt.
+  intros.
+  exact ( fst h, lS_Mapt _ _ (fun z => f (LT_plus z)) (fun z => s (LT_plus z)) (snd h)).
+Defined.
+
+Fixpoint fun_lS { l : nat } :
+  forall (U : LT l -> Type ), lSect (lT_fun U) -> forall z, U z.
+Proof.
+  destruct l.
+  intros U f [ _ []].
+  intros U f [ z ord].
+  destruct z. destruct ord. exact ( fst f ).
+  refine (fun_lS l _ (snd f) (z ; ord) ).
+Defined.
