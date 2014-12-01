@@ -5,6 +5,13 @@ Require Import
  lList
  FunctionRels.
 
+Fixpoint ListOfNcKS
+  ( A : nat -> Type )
+  ( n k : nat ) : lType k :=
+match k with
+  | O => tt
+  | S k' => ( nCkList (A k') n k' , ListOfNcKS A n k' ) end.    
+
 Record Adjacency : Type := {
   adj_Names : nat -> Type;
   adj_Rels : 

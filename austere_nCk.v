@@ -9,11 +9,17 @@ Fixpoint nCk (n k : nat)  : Type :=
     | S k' => ( nCk n' k' ) + ( nCk n' (S k'))
        end end.
 
-Fixpoint nCkType (n k : nat) : Type :=
+Fixpoint nCAll n : nCk n n :=
   match n with
-  | O => match k with O => Type | S k' => Unit end
+| O => tt
+| S n' => inl (nCAll n') end.
+
+Fixpoint nCkType (n k : nat) : Type :=
+ let U := Type in
+  match n with
+  | O => match k with O => U | S k' => Unit end
   | S n' => match k with 
-    O => Type
+    O => U
     | S k' => ( nCkType n' k' ) * ( nCkType n' (S k')) end end.
 
 Fixpoint nCkSect { n k : nat } :
@@ -80,6 +86,12 @@ Sectn A -> Sectn B -> Sectn C (but this looks natural-er).
 
 Notation nCkList A n k := (nCkSect (nCkLT A n k)).
 
+Fixpoint nCTop  {A : Type} { n : nat } : nCkList A n n -> A :=
+  match n with
+  | O => fun X => X
+  | S n' => fun X : (nCkList A n' n') * (nCkList A n' (S n')) => 
+    nCTop (fst X) end.
+
 Fixpoint nCkKonst {A : Type} (a : A) (n k : nat) : nCkList A n k :=
   match n with
   | O => match k with
@@ -101,6 +113,7 @@ Proof.
       exact (nCkKMap _ _ f n k , nCkKMap _ _ f n (S k)).
 Defined.
 
+(** this isn't as helpful as it seems ... *)
 Fixpoint nCk_ST { n k } { struct n } : nCkList Type n k = nCkType n k.
 Proof.
   destruct n.
@@ -149,6 +162,38 @@ Proof.
     destruct k. intros. exact X.
       intros.
       exact ( nCkT_S _ _ (fst X) , nCkT_S _ _ (snd X)).
+Defined.
+
+Fixpoint nckelim { n k } : forall (T : nCkType n k),
+  nCkSect T -> nCkSect (nCkT_S (nCkS_T T)).
+Proof.
+  destruct n.
+    destruct k.
+      intros. exact X.
+      intros. exact tt.
+    destruct k.
+      intros. exact X.
+      intros.
+      destruct X as [ Xf Xs ].
+      destruct T as [ Tf Ts ].
+      split.
+        simpl. auto.
+        simpl. auto.
+Defined.
+
+Fixpoint tKonst_elim { n k }
+ : forall T, nCkList T n k -> nCkSect (nCkT_S (nCkKonst T n k)).
+Proof.
+  destruct n.
+    destruct k.
+      intros.
+      exact X.
+      intros. exact tt.
+    destruct k.
+      intros.
+      exact X.
+      intros.
+      exact ( tKonst_elim _ _ _ (fst X), tKonst_elim _ _ _ (snd X)).
 Defined.
 
 Fixpoint nCkSig {n k} : 
@@ -274,11 +319,34 @@ Proof.
       destruct m, n; try contradiction. intros; apply idpath.
         intros; apply idpath.
       intros.
-      change (inr (nCkComp ra (nCkComp b c)) = inr (nCk k n) (nCkComp (nCkComp ra b) c)).
-      apply ap. apply nCk_assoc.
+(*      change (inr (nCkComp ra (nCkComp b c)) = inr (nCk k n) (nCkComp (nCkComp ra b) c)). *)
+      refine (ap inr _). apply nCk_assoc.
 Defined.
 
-Fixpoint nCkLSubdiv {A : Type} { k } l { m } :
+Fixpoint nCkTSubdiv {k} l {m} :
+  forall T : nCkType k m,
+    nCkList (nCkType k l) l m.
+Proof.
+  destruct k.
+    destruct l.
+     destruct m.
+       intros. exact T.
+       intros. exact tt.
+     intros. apply nCkKonst. exact tt.
+   intros.
+    destruct l.
+     destruct m. exact T.
+     exact tt.
+    destruct m.
+     apply nCkKonst. apply nCkLT. exact T.
+     split.
+      refine (nCkLPair (nCkTSubdiv k l m (fst T)) 
+                       (fst (nCkTSubdiv k (S l) _ (snd T)))).
+      refine (nCkLPair (nCkTSubdiv _ l _ (snd T))
+                       (snd (nCkTSubdiv _ (S l) _ (snd T)))).
+Defined.
+
+Fixpoint nCkSubdiv {A : Type} { k } l { m } :
   (nCkList A k m) -> nCkList (nCkList A k l) l m.
 Proof.
   destruct k.
@@ -294,39 +362,92 @@ Proof.
     destruct m.
      apply nCkKonst. apply nCkKonst. exact X.
      split.
-      refine (nCkLPair (nCkLSubdiv A k l m (fst X)) (fst (nCkLSubdiv A k (S l) _ (snd X)))).
-      refine (nCkLPair (nCkLSubdiv _ _ l _ (snd X)) (snd (nCkLSubdiv _ _ (S l) _ (snd X)))).
+      refine (nCkLPair (nCkSubdiv A k l m (fst X)) 
+                       (fst (nCkSubdiv A k (S l) _ (snd X)))).
+      refine (nCkLPair (nCkSubdiv _ _ l _ (snd X))
+                       (snd (nCkSubdiv _ _ (S l) _ (snd X)))).
 Defined.
 
-Fixpoint nCkRSubdivide { A : Type } {k} l { m } :
-  (nCkList A k m) -> nCkList (nCkList A l m) k l.
+Definition listOfnCkTs { k l m n } :
+  nCkList (nCkList Type k l) m n -> nCkList (nCkType k l) m n :=
+  nCkApply (nCkKMap nCkT_S m n).
+
+Lemma listOfSects { k l m n } :
+  nCkList (nCkList Type k l) m n -> nCkList Type m n.
 Proof.
-  destruct k.
-    destruct l.
-     destruct m.
-       intros. exact X.
-       intros. exact tt.
-     intros. exact tt.
-   intros.
-    destruct l.
-     destruct m. exact X.
-     apply nCkKonst. exact tt.
-    destruct m.
-     apply nCkKonst. exact X.
-    split.
-     simpl.
-     refine (nCkLPair (nCkRSubdivide _ _ l _ (fst X)) (nCkRSubdivide _ _ l _ (snd X))).
-     simpl.
-     exact (nCkRSubdivide _ _ (S l) _ (snd X)).
+  refine ( nCkApply (nCkKMap _ _ _ )).
+  intro.
+  exact (nCkSect (nCkT_S X)).
 Defined.
 
-Fixpoint nCAll n : nCk n n :=
-  match n with
-| O => tt
-| S n' => inl (nCAll n') end.
+Fixpoint listT_of_Sects { k l m n } :
+  nCkList (nCkType k l) m n -> nCkType m n.
+Proof.
+  destruct m.
+    destruct n.
+      intro.
+      exact (nCkSect X).
+     intro. exact tt.
+    destruct n.
+      intro.
+      exact (nCkSect X).
+      intro.
+      exact ( listT_of_Sects _ _ _ _ (fst X) ,
+              listT_of_Sects _ _ _ _ (snd X)).
+Defined.
 
-Fixpoint nCTop  {A : Type} { n : nat } : nCkList A n n -> A :=
-  match n with
-  | O => fun X => X
-  | S n' => fun X : (nCkList A n' n') * (nCkList A n' (S n')) => 
-    nCTop (fst X) end.
+Fixpoint lOfSOfNot k l m :
+  @nCkSect l m (@listT_of_Sects 0 (S k) l m (nCkKonst tt l m)).
+Proof.
+  destruct l.
+   destruct m; exact tt.
+   destruct m. exact tt.
+   exact (lOfSOfNot _ _ _, lOfSOfNot _ _ _).
+Defined.
+
+Fixpoint lSOfPairs { k l m n } :
+ forall (A : nCkList (nCkType k l) m n) ( B : nCkList (nCkType k (S l)) m n ),
+        nCkSect (nCkMap (nCkProd (listT_of_Sects A) (listT_of_Sects B))
+                        (@listT_of_Sects (S k) (S l) m n (nCkLPair A B))).
+Proof.
+  destruct m.
+    destruct n.
+      intros.
+        exact idmap.
+      intros. exact tt.
+    destruct n.
+      intros.
+        exact idmap.
+      intros.
+      exact ( lSOfPairs _ _ _ _ (fst A)(fst B) , lSOfPairs _ _ _ _ (snd A) (snd B)).
+Defined.
+
+Fixpoint nCkSSubdiv { k } l { m } :  
+  forall { T : nCkType k m } ( s : nCkSect T ),
+  nCkSect ( listT_of_Sects (nCkTSubdiv l T )).
+Proof.
+  destruct m.
+    destruct l.
+      destruct k; intros; exact s.
+      destruct k. intros. exact tt.
+      intros. apply nCkKonst. exact s.
+    destruct l.
+      intros. exact tt.
+      intros.
+        destruct k.
+        split.
+        apply lOfSOfNot.
+        apply lOfSOfNot.
+      destruct s as [ sf ss ].
+      destruct T as [ Tf Ts ].
+      set (h1 := nCkPair (nCkSSubdiv k l m Tf sf)
+                       (fst (nCkSSubdiv k (S l) _ Ts ss ))).
+      set (h2 := nCkPair (nCkSSubdiv k l _ Ts ss)
+                       (snd (nCkSSubdiv k (S l) _ Ts ss ))).
+      simpl in *.
+      split.
+        refine (nCkApply _ h1).
+        apply lSOfPairs.
+        refine (nCkApply _ h2).
+        apply lSOfPairs.
+Defined.
