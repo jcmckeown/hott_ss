@@ -168,6 +168,41 @@ Fixpoint lSect { l : nat } : lType l -> Type :=
     fun ( T : Type * lType l' ) =>
       let ( t , T' ) := T in t * lSect T' end.
 
+Fixpoint lLT (T : Type) (l : nat) : lType l :=
+  match l with
+  | O => tt
+  | S l' => ( T , lLT T l' ) end.
+
+Fixpoint l_monOp (W : Type -> Type) { l : nat } :
+  lType l -> lType l :=
+  match l return lType l -> lType l with
+  | O => fun _ => tt
+  | S l' => fun X : lType (S l') => ( W (fst X), l_monOp W (snd X)) end.
+
+Fixpoint l_pairOp (W : Type -> Type -> Type) { l : nat } :
+ lType l -> lType l -> lType l :=
+match l return lType l -> lType l -> lType l with
+  | O => fun _ _ => tt
+  | S l' => fun Ta Tb => 
+    ( W (fst Ta) (fst Tb) , l_pairOp W (snd Ta) (snd Tb)) end.
+
+Definition l_prod { l } ( A B : lType l ) := (l_pairOp prod A B).
+Definition l_sum { l } ( A B : lType l ) := (l_pairOp sum A B).
+Definition l_map { l } ( A B : lType l ) := (l_pairOp (fun X Y => X -> Y) A B).
+
+Definition lList := (fun A => fun l => lSect (lLT A l)).
+
+Fixpoint lKonst { A: Type } (a : A) l : lList A l :=
+  match l with
+  | O => tt
+  | S l' => ( a, lKonst a l') end.
+
+Fixpoint lKMap { A B : Type }(f : A -> B) l : 
+  lSect (l_map (lLT A l) (lLT B l)) :=
+  match l with
+  | O => tt
+  | S l' => ( f , lKMap f l' ) end.
+
 Fixpoint lT_fun { l : nat } : 
 ( LT l -> Type ) -> lType l :=
 match l return ( LT l -> Type) -> lType l with
@@ -194,12 +229,6 @@ match l return ( forall { T : LT l -> Type }, forall {f g : forall z, T z },
  | S l' => fun T f g h =>
   @path_prod _ _ (lS_fun f) (lS_fun g)
     (h (LT_z _)) (lS_eqn (fun z => h (LT_plus z))) end.
-
-Notation lList T l :=
-  (@lSect l (lT_fun (fun _ => T))).
-
-Notation lTKonst a l :=
-  ( @lS_fun l ( fun _ => _ ) (fun _ => a) ).
 
 Fixpoint lS_map { l : nat } : 
  forall { U V : LT l -> Type } ( f : forall z, U z -> V z ),
@@ -261,3 +290,40 @@ Proof.
   destruct z. destruct ord. exact ( fst f ).
   refine (fun_lS l _ (snd f) (z ; ord) ).
 Defined.
+
+Fixpoint lT_S { l : nat } :
+  lList Type l -> lType l :=
+match l return (lList Type l -> lType l) with
+| O => fun _ => tt
+| S l' =>
+  fun L : lList Type (S l') => 
+    ( fst L , lT_S (snd L)) end.
+
+Fixpoint lS_T { l : nat } :
+  lType l -> lList Type l :=
+match l return (lType l -> lList Type l) with
+| O => fun _ => tt
+| S l' =>
+  fun L : lType (S l') => 
+    ( fst L , lS_T (snd L)) end.
+
+Fixpoint l_LPair { A B : Type } { l } : 
+  lList A l -> lList B l -> lList ( A * B ) l :=
+match l return lList A l -> lList B l -> lList ( A * B ) l with
+| O => fun _ _ => tt
+| S l' =>
+  fun aa bb => ( ( fst aa, fst bb ), l_LPair (snd aa) (snd bb)) end.
+
+Fixpoint l_Lfst { A B : Type } { l : nat } :
+  lList (A * B) l -> lList A l :=
+match l with
+ | O => fun _ => tt
+ | S l' => fun W => 
+  (fst (fst W) , l_Lfst (snd W) ) end.
+
+Fixpoint l_Lsnd { A B : Type } { l : nat } :
+  lList (A * B) l -> lList B l :=
+match l with
+ | O => fun _ => tt
+ | S l' => fun W =>
+  (snd (fst W), l_Lsnd (snd W) ) end.

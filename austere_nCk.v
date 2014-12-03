@@ -84,7 +84,7 @@ Sectn A -> Sectn B -> Type
 Sectn A -> Sectn B -> Sectn C (but this looks natural-er).
 *)
 
-Notation nCkList A n k := (nCkSect (nCkLT A n k)).
+Definition nCkList A n k := nCkSect (nCkLT A n k).
 
 Fixpoint nCTop  {A : Type} { n : nat } : nCkList A n n -> A :=
   match n with
@@ -152,7 +152,7 @@ Defined.
   rith thing.
   similarly, nCk_ST is idpath in all (reduced) cases *)
 
-Coercion nCkS_T : nCkType >-> nCkSect.
+Coercion nCkS_T : nCkType >-> nCkList.
 
 Fixpoint nCkT_S { n k } : nCkList Type n k -> nCkType n k.
 Proof.
@@ -194,23 +194,6 @@ Proof.
       exact X.
       intros.
       exact ( tKonst_elim _ _ _ (fst X), tKonst_elim _ _ _ (snd X)).
-Defined.
-
-Fixpoint nCkSig {n k} : 
-  forall {A : nCkType n k} 
-  (P : nCkSect (nCkMap A (nCkLT Type n k))), nCkType n k.
-Proof.
-  destruct n.
-    intros.
-    destruct k.
-      exact (sigT P).
-    exact tt.
-    destruct k.
-      intros.
-      exact (sigT P).
-    intros.
-      exact ( nCkSig _ _ (fst A)(fst P),
-         nCkSig _ _ (snd A)(snd P)).
 Defined.
 
 Fixpoint nCkApply { n k } :
@@ -256,6 +239,107 @@ match n with
     | S k' =>
       fun a b =>
       (nCkLPair (fst a) (fst b), nCkLPair (snd a) (snd b)) end end.
+
+Fixpoint nCkMPair { A : Type } { f g : A -> Type } { n k }:
+ forall ( a : nCkList A n k ),
+  nCkSect (nCkT_S (nCkApply (nCkKMap f n k) a )) ->
+    nCkSect (nCkT_S (nCkApply (nCkKMap g n k) a )) -> 
+      nCkSect (nCkT_S (nCkApply (nCkKMap (fun z => (f z) * (g z)) n k) a)).
+Proof.
+  intros a fs gs.
+  destruct n.
+    destruct k.
+      exact ( fs, gs).
+      exact tt.
+    destruct k.
+      exact ( fs, gs).
+      exact ( nCkMPair _ _ _ _ _ (fst a) (fst fs) (fst gs),
+              nCkMPair _ _ _ _ _ (snd a) (snd fs) (snd gs)).
+Defined.
+
+Fixpoint nCkMCompose {A B: Type} (f: B -> Type) (g : A -> B ) {n k} :
+  forall (a : nCkList A n k) ,
+    nCkSect (nCkT_S (nCkApply (nCkKMap (f o g) _ _) a)) ->
+  nCkSect (nCkT_S (nCkApply (nCkKMap f _ _) (nCkApply (nCkKMap g _ _) a))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact X.
+      exact tt.
+    destruct k.
+      exact X.
+  destruct X.
+  split; simpl; auto.
+Defined.
+
+Fixpoint nCkSig {n k} : 
+  forall {A : nCkType n k} 
+  (P : nCkSect (nCkMap A (nCkLT Type n k))), nCkType n k.
+Proof.
+  destruct n.
+    intros.
+    destruct k.
+      exact (sigT P).
+    exact tt.
+    destruct k.
+      intros.
+      exact (sigT P).
+    intros.
+      exact ( nCkSig _ _ (fst A)(fst P),
+         nCkSig _ _ (snd A)(snd P)).
+Defined.
+
+Fixpoint nCkExistT { n k } :
+  forall { A : nCkType n k} 
+    { P : nCkSect (nCkMap A (nCkLT Type n k))}
+    ( a : nCkSect A ) ( b : nCkSect (nCkT_S (nCkApply P a)) ),
+    nCkSect (nCkSig P).
+Proof.
+  destruct n.
+    destruct k.
+      intros.
+      exists a. exact b.
+      intros.
+      exact tt.
+    destruct k.
+      intros.
+      exists a. exact b.
+      intros.
+      exact (nCkExistT _ _ _ _ (fst a) (fst b) ,
+             nCkExistT _ _ _ _ (snd a) (snd b)).
+Defined.
+
+Fixpoint nCkLExistT { A : Type }{ P : A -> Type } { n k } :
+  forall (a : nCkList A n k)
+   (b : nCkSect (nCkT_S (nCkApply (nCkKMap P _ _) a) )),
+   nCkList (sigT P) n k.
+Proof.
+  destruct n.
+    destruct k.
+    intros. exists a. exact b.
+    intros. exact tt.
+    destruct k.
+    intros. exists a. exact b.
+    intros.
+    exact (nCkLExistT A P _ _ (fst a) (fst b),
+          nCkLExistT A P _ _ (snd a) (snd b)).
+Defined.
+
+Fixpoint nCkSkmap_nCkList { A B : Type } {n k} :
+  forall {a : nCkList A n k},
+    (nCkList B n k) -> nCkSect (nCkT_S (nCkApply (nCkKMap (fun _ : A => B) n k) a)).
+Proof.
+  intros a b.
+  destruct n.
+    destruct k.
+      exact b.
+      exact tt.
+    destruct k.
+      exact b.
+      exact ( nCkSkmap_nCkList A B _ _ (fst a) (fst b), 
+              nCkSkmap_nCkList A B _ _ (snd a) (snd b)).
+Defined.
 
 Fixpoint tauto (n k : nat) :
   nCkList (nCk n k) n k.
@@ -482,7 +566,8 @@ Proof.
       intros.
         exact idmap.
       intros.
-      exact ( lSOfPairs _ _ _ _ (fst A) (fst B) , lSOfPairs _ _ _ _ (snd A) (snd B)).
+      exact ( lSOfPairs _ _ _ _ (fst A) (fst B),
+              lSOfPairs _ _ _ _ (snd A) (snd B)).
 Defined.
 
 (*
