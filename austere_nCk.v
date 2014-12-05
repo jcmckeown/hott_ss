@@ -518,31 +518,6 @@ Proof.
       refine (ap inr _). apply nCk_assoc.
 Defined.
 
-(*
-Fixpoint nCkTSubdiv {k} l {m} :
-  forall T : nCkType k m,
-    nCkList (nCkType k l) l m.
-Proof.
-  destruct k.
-    destruct l.
-     destruct m.
-       intros. exact T.
-       intros. exact tt.
-     intros. apply nCkKonst. exact tt.
-   intros.
-    destruct l.
-     destruct m. exact T.
-     exact tt.
-    destruct m.
-     apply nCkKonst. apply nCkLT. exact T.
-     split.
-      refine (nCkLPair (nCkTSubdiv k l m (fst T)) 
-                       (fst (nCkTSubdiv k (S l) _ (snd T)))).
-      refine (nCkLPair (nCkTSubdiv _ l _ (snd T))
-                       (snd (nCkTSubdiv _ (S l) _ (snd T)))).
-Defined.
-*)
-
 Fixpoint nCkTSubdiv {k} l {m} :
   forall T : nCkType k m,
     nCkList (nCkType l m) k l.
@@ -569,48 +544,35 @@ Defined.
 Fixpoint nCkSubdiv { A : Type } {k} l { m } :
 (nCkList A k m) -> nCkList (nCkList A l m) k l.
 Proof.
+  intros.
   destruct k.
+   destruct m.
+    destruct l ; exact (nCkKonst X _ _ ).
+    destruct l ; exact tt.
+   destruct m.
+    destruct l ; exact (nCkKonst X _ _ ).
     destruct l.
-      destruct m.
-        intros. exact X.
-        intros. exact tt.
-      intros. exact tt.
-    intros.
-    destruct l.
-      destruct m. exact X.
-      apply nCkKonst. exact tt.
-      destruct m.
-        apply nCkKonst. exact X.
-        split.
-        simpl.
-        refine (nCkLPair (nCkSubdiv _ _ l _ (fst X)) (nCkSubdiv _ _ l _ (snd X))).
-        simpl.
-        exact (nCkSubdiv _ _ (S l) _ (snd X)).
+     exact tt.
+    split. simpl.
+    exact ( nCkLPair (nCkSubdiv _ _ l _ (fst X)) (nCkSubdiv _ _ l _ (snd X))).
+    exact ( nCkSubdiv _ _ (S l) _ (snd X)).
 Defined.
 
-(*
-Fixpoint nCkSubdiv {A : Type} { k } l { m } :
-  (nCkList A k m) -> nCkList (nCkList A k l) l m.
+Fixpoint konstIdmap { A : Type }{ n k : nat }:
+  forall (a : nCkList A n k),
+    a = (nCkApply (nCkKMap idmap _ _ ) a ).
 Proof.
-  destruct k.
-    destruct l.
-     destruct m.
-       intros. exact X.
-       intros. exact tt.
-     intros. apply nCkKonst. exact tt.
-   intros.
-    destruct l.
-     destruct m. exact X.
-     exact tt.
-    destruct m.
-     apply nCkKonst. apply nCkKonst. exact X.
-     split.
-      refine (nCkLPair (nCkSubdiv A k l m (fst X)) 
-                       (fst (nCkSubdiv A k (S l) _ (snd X)))).
-      refine (nCkLPair (nCkSubdiv _ _ l _ (snd X))
-                       (snd (nCkSubdiv _ _ (S l) _ (snd X)))).
+  intros.
+  destruct n.
+    destruct k.
+      exact idpath.
+      destruct a; exact idpath.
+    destruct k.
+      exact idpath.
+      apply path_prod.
+        apply konstIdmap.
+        apply konstIdmap.
 Defined.
-*)
 
 Definition listOfnCkTs { k l m n } :
   nCkList (nCkList Type k l) m n -> nCkList (nCkType k l) m n :=
@@ -680,37 +642,6 @@ Proof.
       exact ( lSOfPairs _ _ _ _ (fst A) (fst B),
               lSOfPairs _ _ _ _ (snd A) (snd B)).
 Defined.
-
-(*
-Fixpoint nCkSSubdiv { k } l { m } :  
-  forall { T : nCkType k m } ( s : nCkSect T ),
-  nCkSect ( listT_of_Sects (nCkTSubdiv l T )).
-Proof.
-  destruct m.
-    destruct l.
-      destruct k; intros; exact s.
-      destruct k. intros. exact tt.
-      intros. apply nCkKonst. exact s.
-    destruct l.
-      intros. exact tt.
-      intros.
-        destruct k.
-        split.
-        apply lOfSOfNot.
-        apply lOfSOfNot.
-      destruct s as [ sf ss ].
-      destruct T as [ Tf Ts ].
-      set (h1 := nCkPair (nCkSSubdiv k l m Tf sf)
-                       (fst (nCkSSubdiv k (S l) _ Ts ss ))).
-      set (h2 := nCkPair (nCkSSubdiv k l _ Ts ss)
-                       (snd (nCkSSubdiv k (S l) _ Ts ss ))).
-      simpl in *.
-      split.
-        refine (nCkApply _ h1).
-        apply lSOfPairs.
-        refine (nCkApply _ h2).
-        apply lSOfPairs.
-Defined. *)
 
 Fixpoint nCkSSubdiv { k } l { m } :  
   forall { T : nCkType k m } ( s : nCkSect T ),
