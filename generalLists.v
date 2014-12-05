@@ -20,6 +20,15 @@ Proof.
         l_nck_nck_l _ _ _ (l_Lsnd X) ).
 Defined.
 
+Fixpoint ln_nl_alt { k l m : nat } :
+  lList (nCkType k l) m -> nCkList (lType m) k l.
+Proof.
+  intros.
+  destruct m.
+    exact (nCkKonst tt _ _).
+    exact (nCkLPair (fst X) (ln_nl_alt _ _ _ (snd X))).
+Defined.
+
 Fixpoint nck_l_l_nck { k l m : nat } :
   nCkList (lType m) k l -> lList (nCkType k l) m.
 Proof.
@@ -55,6 +64,14 @@ match k return nCkList (lType m) k l -> nCkType k l with
       | O => fun X : lType m => lSect X 
       | S l' => fun X =>
         ( lt_l_nck (fst X) , lt_l_nck (snd X)) end end.
+
+Fixpoint lt_l_nck_alt { k l m : nat } :
+ nCkList (lType m) k l -> nCkType k l :=
+match m with
+  | O => fun _ => nCkLT Unit k l
+  | S m' =>
+    fun ( w : nCkList (Type * lType m') k l) =>
+      nCkProd (nCkT_S (nCkLfst w)) (lt_l_nck_alt (nCkLsnd w)) end.
 
 Fixpoint noneOfAnything { l m } :
     forall (LNCK : lList ( nCkType l m ) 0),
@@ -130,3 +147,60 @@ Proof.
   refine (nckls_step _ _ (fst X)
                  (nckls_lncks _ _ _ _ (snd X))).
 Defined.
+
+Fixpoint fstpair_elim { n k } :
+forall { A : nCkType n k }
+ {B : Type}{ b : nCkList B n k},
+  nCkSect A ->
+    nCkSect (nCkT_S (nCkLfst (nCkLPair A b ))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact X.
+      exact tt.
+    destruct k.
+      exact X.
+      simpl. destruct A. destruct b.
+      exact (fstpair_elim _ _ _ _ _ (fst X),
+             fstpair_elim _ _ _ _ _ (snd X)).
+Defined.
+
+Fixpoint sndpair_elim { n k } : 
+forall { A: Type } { a : nCkList A _ _ }
+ { B : nCkType n k },
+ nCkSect B -> (nCkSect (nCkT_S (nCkLsnd (nCkLPair a B)))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact X.
+      exact tt.
+    destruct k.
+      exact X.
+      destruct a, B.
+      exact (sndpair_elim _ _ _ _ _ (fst X),
+             sndpair_elim _ _ _ _ _ (snd X)).
+Defined.
+
+(*
+Fixpoint nckls_lncks_alt { k l m : nat }:
+  forall LNCK : lList (nCkType k l) m, 
+    lSect (nckt_nck_l LNCK) ->
+      nCkSect (lt_l_nck_alt (ln_nl_alt LNCK)).
+Proof.
+  intros.
+  destruct m.
+    exact (nCkKonst tt _ _).
+    destruct LNCK.
+    destruct X.
+    apply nCkPair.
+    simpl.
+     apply fstpair_elim.
+     exact n0.
+    simpl.
+    refine (nckls_lncks_alt _ l _ _ l1).
+    apply sndpair_elim.
+    apply 
+      (nckls_lncks_alt _ _ _ l0 l1).
+*)

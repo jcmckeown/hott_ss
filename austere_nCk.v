@@ -213,6 +213,16 @@ Proof.
         nCkApply _ _ _ _ (snd f) (snd a)).
 Defined.
 
+Fixpoint nCkAllUnit { n k } :
+  forall { A : Type } 
+    { y : nCkList A n k },
+    nCkSect (nCkT_S (nCkApply (nCkKMap (fun _ => Unit : Type) _ _ ) y )).
+Proof.
+  intros.
+  destruct n ; destruct k ; try exact tt.
+  exact (nCkAllUnit _ _ _ (fst y), nCkAllUnit _ _ _ (snd y)).
+Defined.
+
 Fixpoint nCkPair { n k } :
   forall { A B : nCkType n k },
    nCkSect A -> nCkSect B -> nCkSect (nCkProd A B) :=
@@ -227,6 +237,30 @@ match n with
       fun A B a b =>
       (nCkPair (fst a) (fst b), nCkPair (snd a) (snd b)) end end.
 
+Fixpoint nCkfst { n k } :
+  forall { A B : nCkType n k },
+  nCkSect ( nCkProd A B ) -> nCkSect A :=
+match n with
+  | O => match k with
+    | O => fun A B s => fst s
+    | S k' => fun _ _ _ => tt end
+  | S n' =>
+    match k with
+    | O => fun A B s => fst s
+    | S k' => fun A B s => ( nCkfst (fst s), nCkfst (snd s)) end end.
+
+Fixpoint nCksnd { n k } :
+  forall { A B : nCkType n k },
+  nCkSect ( nCkProd A B ) -> nCkSect B :=
+match n with
+  | O => match k with
+    | O => fun A B s => snd s
+    | S k' => fun _ _ _ => tt end
+  | S n' =>
+    match k with
+    | O => fun A B s => snd s
+    | S k' => fun A B s => ( nCksnd (fst s), nCksnd (snd s)) end end.
+
 Fixpoint nCkLPair {A B : Type} { n k } : 
   nCkList A n k -> nCkList B n k -> nCkList (A * B) n k :=
 match n with
@@ -239,6 +273,28 @@ match n with
     | S k' =>
       fun a b =>
       (nCkLPair (fst a) (fst b), nCkLPair (snd a) (snd b)) end end.
+
+Fixpoint nCkLfst { A B : Type } { n k } :
+  nCkList (A * B) n k -> nCkList A n k :=
+match n with
+  | O => match k with
+    | O => fst
+    | S k' => fun _ => tt end
+  | S n' => match k with
+    | O => fst
+    | S k' => fun W : nCkList (A * B) (S n') (S k')
+     => (nCkLfst (fst W), nCkLfst (snd W)) end end.
+
+Fixpoint nCkLsnd { A B : Type } { n k } :
+  nCkList (A * B) n k -> nCkList B n k :=
+match n with
+  | O => match k with
+    | O => snd
+    | S k' => fun _ => tt end
+  | S n' => match k with
+    | O => snd
+    | S k' => fun W : nCkList (A * B) (S n') (S k')
+     => (nCkLsnd (fst W), nCkLsnd (snd W)) end end.
 
 Fixpoint nCkMPair { A : Type } { f g : A -> Type } { n k }:
  forall ( a : nCkList A n k ),
@@ -310,6 +366,34 @@ Proof.
              nCkExistT _ _ _ _ (snd a) (snd b)).
 Defined.
 
+Fixpoint nCkProj1' { n k } :
+  forall { A : nCkType n k} 
+    { P : nCkSect (nCkMap A (nCkLT Type n k))},
+   nCkSect (nCkSig P) -> nCkSect A :=
+match n with
+  | O => match k with
+    | O => fun A P s => projT1 s 
+    | _ => fun _ _ _ => tt end
+  | S n' => match k with
+    | O => fun A P s => projT1 s
+    | S k' => fun A P s => (nCkProj1' (fst s) , nCkProj1' (snd s)) end end.
+
+Fixpoint nCkProj2' { n k } :
+  forall {A : nCkType n k} {P : nCkSect (nCkMap A (nCkLT Type _ _))}
+    (s : nCkSect (nCkSig P)) ,
+      nCkSect (nCkT_S (nCkApply P (nCkProj1' s))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (projT2 s).
+      exact tt.
+    destruct k.
+      exact (projT2 s).
+      exact ( nCkProj2' _ _ (fst A) (fst P) (fst s),
+              nCkProj2' _ _ (snd A) (snd P) (snd s)).
+Defined.
+
 Fixpoint nCkLExistT { A : Type }{ P : A -> Type } { n k } :
   forall (a : nCkList A n k)
    (b : nCkSect (nCkT_S (nCkApply (nCkKMap P _ _) a) )),
@@ -324,6 +408,33 @@ Proof.
     intros.
     exact (nCkLExistT A P _ _ (fst a) (fst b),
           nCkLExistT A P _ _ (snd a) (snd b)).
+Defined.
+
+Fixpoint nCkProj1 {n k} :
+ nCkList { T : Type & T } n k -> nCkType n k :=
+match n with
+  | O => 
+    match k with 
+     | O => fun Tt => projT1 Tt
+     | S k' => fun _ => tt end
+  | S n' =>
+    match k with
+     | O => fun Tt => projT1 Tt 
+     | S k' => fun Tt =>
+      ( nCkProj1 (fst Tt) , nCkProj1 (snd Tt)) end end.
+
+Fixpoint nCkProj2 {n k} :
+  forall A : nCkList { T : Type & T } n k,
+    nCkSect (nCkProj1 A).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (projT2 A).
+      exact tt.
+    destruct k.
+      exact (projT2 A).
+      exact (nCkProj2 _ _ (fst A), nCkProj2 _ _ (snd A)).
 Defined.
 
 Fixpoint nCkSkmap_nCkList { A B : Type } {n k} :
@@ -626,3 +737,49 @@ Proof.
           apply nCkSSubdiv. exact (snd s).
           apply nCkSSubdiv. exact (snd s).
 Defined.
+
+Fixpoint nCkL_S { k l } :
+  forall { A : nCkType k l },
+    nCkSect A -> nCkList { T : Type & T } k l.
+Proof.
+ intros A a.
+  destruct k.
+    destruct l.
+      exists A. exact a.
+      exact tt.
+    destruct l.
+      exists A. exact a.
+      exact ( nCkL_S _ _ (fst A) (fst a), nCkL_S _ _ (snd A) (snd a)).
+Defined.
+
+Definition nck_alt_ssubdiv { k } l { m } {A : nCkType k m}
+  (a : nCkSect A) :=
+  nCkSubdiv l ( nCkL_S a ).
+
+Definition nck_alt_sd {k} l { m } { A : nCkType k m }
+  (a : nCkSect A) : nCkList (nCkType l m) k l :=
+  nCkApply (nCkKMap nCkProj1 _ _) (nck_alt_ssubdiv l a).
+
+(** 
+Fixpoint nCk_alt_ssd {k} l {m}:
+ forall { A : nCkType k m } 
+  (a : nCkSect A),
+    nCkSect (listT_of_Sects (nck_alt_sd l a)). 
+Proof.
+  intros.
+  unfold nck_alt_sd.
+  destruct k.
+    destruct m.
+      destruct l.
+        exact a.
+        exact tt.
+      destruct l.
+        exact tt.
+        exact tt.
+    destruct m.
+      destruct l.
+        exact a.
+        refine (nCkApply _ (nCkKonst a _ _ )).
+        simpl in *.
+        split.
+          apply nCk_alt_ssd. **)
