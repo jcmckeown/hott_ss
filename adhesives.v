@@ -1,8 +1,7 @@
-Require Import
+Require Export
  HoTT
  Nat
  generalLists
- FunctionRels
  nCkEqns.
 
 (* this one really belongs in nCk.v ... *)
