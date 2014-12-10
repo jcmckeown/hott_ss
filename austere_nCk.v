@@ -14,6 +14,8 @@ Fixpoint nCAll n : nCk n n :=
 | O => tt
 | S n' => inl (nCAll n') end.
 
+(* (nCk n k -1> Type) : Type *)
+
 Fixpoint nCkType (n k : nat) : Type :=
  let U := Type in
   match n with
@@ -21,6 +23,8 @@ Fixpoint nCkType (n k : nat) : Type :=
   | S n' => match k with 
     O => U
     | S k' => ( nCkType n' k' ) * ( nCkType n' (S k')) end end.
+
+(* T : nCk n k -1> Type |-  (fora11 x: nCk n k, T x) : Type *)
 
 Fixpoint nCkSect { n k : nat } :
   nCkType n k -> Type :=
@@ -33,6 +37,8 @@ Fixpoint nCkSect { n k : nat } :
     | S k' => fun T : ( nCkType n' k' ) * ( nCkType n' (S k')) =>
       ( nCkSect (fst T)) * (nCkSect (snd T)) end end.
 
+(* A : Type |- (_ : nCk n k =1> A) : (nCk n k -1> Type) *)
+
 Fixpoint nCkLT (A : Type) (n k : nat) :
   nCkType n k :=
 match n with
@@ -42,6 +48,8 @@ match n with
  | S n' => match k return nCkType (S n') k with
   | O => A
   | S k' => ((nCkLT A n' k'), (nCkLT A n' (S k'))) end end.
+
+(* (Type -> Type) ->  (nCk n k -1> Type) -> (nCk n k -1> Type) *)
 
 Fixpoint nCk_monOp (W : Type -> Type) { n k : nat } :
  nCkType n k -> nCkType n k :=
@@ -54,6 +62,9 @@ match n with
     | S n' => fun T =>
       ( nCk_monOp W (fst T) , nCk_monOp W (snd T) ) end end.
 
+(* (Type -> Type -> Type) -> 
+ (nCk n k -1> Type) ->(nCk n k -1> Type) -> (nCk n k -1> Type) *)
+
 Fixpoint nCk_pairOp (W : Type -> Type -> Type) { n k : nat } :
  nCkType n k -> nCkType n k -> nCkType n k :=
 match n return nCkType n k -> nCkType n k -> nCkType n k with
@@ -64,6 +75,9 @@ match n return nCkType n k -> nCkType n k -> nCkType n k with
   | O => fun A B => (W A B)
   | S k' => fun A B => 
     (nCk_pairOp W (fst A) (fst B), nCk_pairOp W (snd A) (snd B)) end end.
+
+Definition nCkDep { n k : nat } : nCkType n k -> nCkType n k :=
+  nCk_monOp (fun A => A -> Type).
 
 Definition nCkProd { n k : nat } : nCkType n k -> nCkType n k -> nCkType n k :=
   nCk_pairOp prod.
@@ -84,13 +98,21 @@ Sectn A -> Sectn B -> Type
 Sectn A -> Sectn B -> Sectn C (but this looks natural-er).
 *)
 
+(* ( nCk n k -2> A ) := (fora11 cx : nCk n k, A ) *)
+
 Definition nCkList A n k := nCkSect (nCkLT A n k).
+
+(** The identity maps `( nCkList A a 0 -> A )` are
+immediate (after destructuring `a`) *)
 
 Fixpoint nCTop  {A : Type} { n : nat } : nCkList A n n -> A :=
   match n with
   | O => fun X => X
   | S n' => fun X : (nCkList A n' n') * (nCkList A n' (S n')) => 
     nCTop (fst X) end.
+
+(* A : Type, a : A |- nckk a n k : (nCk n k -2> A) *)
+(* [ cx =2> a ] *)
 
 Fixpoint nCkKonst {A : Type} (a : A) (n k : nat) : nCkList A n k :=
   match n with
@@ -100,6 +122,9 @@ Fixpoint nCkKonst {A : Type} (a : A) (n k : nat) : nCkList A n k :=
   | S n' => match k with
     | O => a
     | S k' => ( nCkKonst a n' k', nCkKonst a n' (S k')) end end.
+
+(* A B : Type, f : A -> B |- ( _ : nCk n k =2> f) : nCkMap (_ =1> A)(_ => B) )
+*)
 
 Fixpoint nCkKMap { A B : Type } (f : A -> B ) (n k : nat) :
   nCkSect (nCkMap (nCkLT A n k) (nCkLT B n k)).
@@ -114,6 +139,7 @@ Proof.
 Defined.
 
 (** this isn't as helpful as it seems ... *)
+
 Fixpoint nCk_ST { n k } { struct n } : nCkList Type n k = nCkType n k.
 Proof.
   destruct n.
@@ -133,6 +159,10 @@ Proof.
 Defined.
 
 (** Now, what to do... *)
+
+(* (nCk n k -1> Type) -> (fora11 _ : nCk n k, Type) *)
+(* T => (cx : nCk =2> T cx) *)
+(* (cx =1> T cx) => (cx =2> T cx) *)
 
 Fixpoint nCkS_T { n k } : nCkType n k -> nCkList Type n k.
 Proof.
@@ -154,6 +184,9 @@ Defined.
 
 Coercion nCkS_T : nCkType >-> nCkList.
 
+(* (fora11 _ : nCk, Type) -> (nCk n k -1> Type) *)
+(* (cx =2> T cx ) => (cx =1> T cx) *)
+
 Fixpoint nCkT_S { n k } : nCkList Type n k -> nCkType n k.
 Proof.
   destruct n.
@@ -163,6 +196,10 @@ Proof.
       intros.
       exact ( nCkT_S _ _ (fst X) , nCkT_S _ _ (snd X)).
 Defined.
+
+(* T : (nCk n k -1> Type) |- (fora11 cx, T cx) -> 
+  (fora11 cx , [t =2> T t] cx)
+ *)
 
 Fixpoint nckelim { n k } : forall (T : nCkType n k),
   nCkSect T -> nCkSect (nCkT_S (nCkS_T T)).
@@ -181,6 +218,10 @@ Proof.
         simpl. auto.
 Defined.
 
+(* T : Type , (f: fora11 cx: nCk n k, T) |- 
+  fora11 cx, (cx =2> T) cx
+*)
+
 Fixpoint tKonst_elim { n k }
  : forall T, nCkList T n k -> nCkSect (nCkT_S (nCkKonst T n k)).
 Proof.
@@ -195,6 +236,11 @@ Proof.
       intros.
       exact ( tKonst_elim _ _ _ (fst X), tKonst_elim _ _ _ (snd X)).
 Defined.
+
+(* A B : (nCk n k -1> Type) ,
+  m : (fora11 cx, (A cx) -> (B cx)) (S : fora11 cx, A cx)
+|- (cx =2> (m cx) (S cx)) : fora11 cx, B cx
+ *)
 
 Fixpoint nCkApply { n k } :
   forall { A B : nCkType n k} ,
@@ -213,6 +259,12 @@ Proof.
         nCkApply _ _ _ _ (snd f) (snd a)).
 Defined.
 
+(* A : Type, s : nCk n k -2> A |-
+  (cx : nCk n k =2> tt) :
+   fora11 cx : nCk n k,
+    ( _ : nCk =2> (fun _ :A => Unit)) cx (s cx)
+*)
+
 Fixpoint nCkAllUnit { n k } :
   forall { A : Type } 
     { y : nCkList A n k },
@@ -222,6 +274,11 @@ Proof.
   destruct n ; destruct k ; try exact tt.
   exact (nCkAllUnit _ _ _ (fst y), nCkAllUnit _ _ _ (snd y)).
 Defined.
+
+(* A B : ( nCk n k -1> Type),
+  (a : fora11 cx, A cx) (b : fora11 cx, B cx) |-
+    (cx =2> (a cx, b cx)) : fora11 cx, (A cx) * (B cx) 
+*)
 
 Fixpoint nCkPair { n k } :
   forall { A B : nCkType n k },
@@ -237,6 +294,11 @@ match n with
       fun A B a b =>
       (nCkPair (fst a) (fst b), nCkPair (snd a) (snd b)) end end.
 
+(* A B : (nCk n k -1> Type), 
+  s : fora11 cx, (A cx)*(B cx) |-
+    (cx =2> fst (s cx)) : fora11 cx, A cx
+*)
+
 Fixpoint nCkfst { n k } :
   forall { A B : nCkType n k },
   nCkSect ( nCkProd A B ) -> nCkSect A :=
@@ -249,6 +311,11 @@ match n with
     | O => fun A B s => fst s
     | S k' => fun A B s => ( nCkfst (fst s), nCkfst (snd s)) end end.
 
+(* A B : (nCk n k -1> Type), 
+  s : fora11 cx, (A cx)*(B cx) |-
+    (cx =2> snd (s cx)) : fora11 cx, B cx
+*)
+
 Fixpoint nCksnd { n k } :
   forall { A B : nCkType n k },
   nCkSect ( nCkProd A B ) -> nCkSect B :=
@@ -260,6 +327,10 @@ match n with
     match k with
     | O => fun A B s => snd s
     | S k' => fun A B s => ( nCksnd (fst s), nCksnd (snd s)) end end.
+
+(* A B : Type , a : (nCk n k -2> A), b : (nCk n k -2> B)
+ |- (cx =2> (a cx, b cx)) : (nCk n k -2> (A * B))
+*)
 
 Fixpoint nCkLPair {A B : Type} { n k } : 
   nCkList A n k -> nCkList B n k -> nCkList (A * B) n k :=
@@ -296,6 +367,8 @@ match n with
     | S k' => fun W : nCkList (A * B) (S n') (S k')
      => (nCkLsnd (fst W), nCkLsnd (snd W)) end end.
 
+(** I really can't remember why I wrote this... *)
+
 Fixpoint nCkMPair { A : Type } { f g : A -> Type } { n k }:
  forall ( a : nCkList A n k ),
   nCkSect (nCkT_S (nCkApply (nCkKMap f n k) a )) ->
@@ -313,6 +386,9 @@ Proof.
               nCkMPair _ _ _ _ _ (snd a) (snd fs) (snd gs)).
 Defined.
 
+(** nCkKMap is a functor.
+ *)
+
 Fixpoint nCkMCompose {A B: Type} (f: B -> Type) (g : A -> B ) {n k} :
   forall (a : nCkList A n k) ,
     nCkSect (nCkT_S (nCkApply (nCkKMap (f o g) _ _) a)) ->
@@ -329,6 +405,8 @@ Proof.
   split; simpl; auto.
 Defined.
 
+(** two versions of this? *)
+
 Fixpoint nCkSig {n k} : 
   forall {A : nCkType n k} 
   (P : nCkSect (nCkMap A (nCkLT Type n k))), nCkType n k.
@@ -344,6 +422,20 @@ Proof.
     intros.
       exact ( nCkSig _ _ (fst A)(fst P),
          nCkSig _ _ (snd A)(snd P)).
+Defined.
+
+Fixpoint nCkSig' { n k } :
+  forall { A : nCkType n k } (P : nCkSect (nCkDep A)),
+    nCkType n k.
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (sigT P).
+      exact tt.
+    destruct k.
+      exact (sigT P).
+      exact (nCkSig' _ _ _ (fst P), nCkSig' _ _ _ (snd P)).
 Defined.
 
 Fixpoint nCkExistT { n k } :
@@ -366,6 +458,40 @@ Proof.
              nCkExistT _ _ _ _ (snd a) (snd b)).
 Defined.
 
+Fixpoint nCkApDep { n k } :
+  forall { A : nCkType n k } 
+   ( P : nCkSect (nCkDep A) ) (s : nCkSect A),
+    nCkType n k.
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact ( P s ).
+      exact tt.
+    destruct k.
+      exact ( P s ).
+      exact (nCkApDep _ _ _ (fst P) (fst s),
+              nCkApDep _ _ _ (snd P) (snd s)).
+Defined.
+
+Fixpoint nCkExistT' { n k } :
+  forall { A: nCkType n k }
+  { P : nCkSect (nCkDep A) }
+   (a : nCkSect A) (p : nCkSect (nCkApDep P a)),
+   nCkSect (nCkSig' P).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exists a. exact p.
+      exact tt.
+    destruct k.
+      exists a. exact p.
+      exact (
+        nCkExistT' _ _ _ _ (fst a) (fst p),
+        nCkExistT' _ _ _ _ (snd a) (snd p)).
+Defined.
+
 Fixpoint nCkProj1' { n k } :
   forall { A : nCkType n k} 
     { P : nCkSect (nCkMap A (nCkLT Type n k))},
@@ -377,6 +503,22 @@ match n with
   | S n' => match k with
     | O => fun A P s => projT1 s
     | S k' => fun A P s => (nCkProj1' (fst s) , nCkProj1' (snd s)) end end.
+
+Fixpoint nCk_Proj1' { n k } :
+  forall { A: nCkType n k }
+    { P : nCkSect (nCkDep A) },
+    nCkSect (nCkSig' P) -> nCkSect A.
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (X .1).
+      exact tt.
+    destruct k.
+      exact (X .1).
+      exact (nCk_Proj1' _ _ _ _ (fst X),
+             nCk_Proj1' _ _ _ _ (snd X)).
+Defined.
 
 Fixpoint nCkProj2' { n k } :
   forall {A : nCkType n k} {P : nCkSect (nCkMap A (nCkLT Type _ _))}
@@ -392,6 +534,22 @@ Proof.
       exact (projT2 s).
       exact ( nCkProj2' _ _ (fst A) (fst P) (fst s),
               nCkProj2' _ _ (snd A) (snd P) (snd s)).
+Defined.
+
+Fixpoint nCk_Proj2' { n k } : 
+  forall { A: nCkType n k } { P : nCkSect (nCkDep A)}
+   (s : nCkSect (nCkSig' P)),
+   nCkSect (nCkApDep P (nCk_Proj1' s)).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+    exact (projT2 s).
+    exact tt.
+  destruct k.
+    exact (projT2 s).
+    exact ( nCk_Proj2' _ _ (fst A) (fst P) (fst s),
+            nCk_Proj2' _ _ (snd A) (snd P) (snd s)).
 Defined.
 
 Fixpoint nCkLExistT { A : Type }{ P : A -> Type } { n k } :
@@ -494,28 +652,34 @@ l v  | l (w.v)  | r (w'.lv)
 r v' | r (w.v') | r (w'.rv')
 *)
 
-Fixpoint nCk_assoc { k l m n } { struct k}:
-  forall (a : nCk k l) (b : nCk l m) (c : nCk m n),
-  nCkComp a (nCkComp b c) = nCkComp (nCkComp a b) c.
+Ltac ideqv := solve [(split ; apply idmap)].
+
+Fixpoint nCk_assoc { k l m n } {struct k}:
+  forall (a : nCk k l) (b : nCk l m) (c : nCk m n)
+  (P : nCk k n -> Type),
+  P (nCkComp a (nCkComp b c)) <-> P (nCkComp (nCkComp a b) c).
 Proof.
   destruct k.
     destruct l, m ; try contradiction.
-      intros; apply idpath.
+      intros. ideqv.
     destruct l.
       destruct m, n; try contradiction.
-      intros; apply idpath.
+      intros; ideqv.
     intros [ la | ra ].
-      destruct m , n; try contradiction; intros; try apply idpath.
-      destruct b. apply idpath. apply idpath.
-      destruct b. destruct c. simpl. apply ap. auto.
-                simpl. apply ap. auto.
+      destruct m , n; try contradiction; intros; try ideqv.
+      destruct b; ideqv.
+      destruct b. destruct c; simpl.
+        refine ( nCk_assoc _ _ _ _ _ _ _ (fun cx => P (inl cx))).
+        refine ( nCk_assoc _ _ _ _ _ _ _ (fun cx => P (inr cx))).
+        refine ( nCk_assoc _ _ _ _ _ _ _ (fun cx => P (inr cx))).
+(*                simpl. apply ap. auto.
                   destruct c. simpl. apply ap. auto.
-                  simpl. apply ap. auto.
-      destruct m, n; try contradiction. intros; apply idpath.
-        intros; apply idpath.
+                  simpl. apply ap. auto. *)
+      destruct m, n; try contradiction. intros; ideqv.
+        intros; ideqv.
       intros.
 (*      change (inr (nCkComp ra (nCkComp b c)) = inr (nCk k n) (nCkComp (nCkComp ra b) c)). *)
-      refine (ap inr _). apply nCk_assoc.
+      refine (nCk_assoc _ _ _ _ _ _ _ (fun cx => P (inr cx))).
 Defined.
 
 Fixpoint nCkTSubdiv {k} l {m} :
@@ -586,8 +750,11 @@ Proof.
   exact (nCkSect (nCkT_S X)).
 Defined.
 
-Fixpoint listT_of_Sects { k l m n } :
-  nCkList (nCkType k l) m n -> nCkType m n.
+Definition listT_of_Sects { k l m n } :
+  nCkList (nCkType k l) m n -> nCkType m n :=
+  fun z =>
+    nCkT_S (nCkApply (nCkKMap nCkSect _ _) z).
+(*
 Proof.
   destruct m.
     destruct n.
@@ -600,7 +767,7 @@ Proof.
       intro.
       exact ( listT_of_Sects _ _ _ _ (fst X) ,
               listT_of_Sects _ _ _ _ (snd X)).
-Defined.
+Defined. *)
 
 Fixpoint lOfSOfNot k l m :
   @nCkSect l m (@listT_of_Sects 0 (S k) l m (nCkKonst tt l m)).
@@ -658,8 +825,8 @@ Proof.
        intros.
         simpl.
         split.
-        refine (lSOfOne s _ _ _).
-        refine (lSOfOne s _ _ _).
+        exact (lSOfOne s _ _ l).
+        refine (lSOfOne s _ _ l).
        intros.
         split.
         refine (nCkApply (lSOfPairs _ _) _).
@@ -690,6 +857,47 @@ Definition nck_alt_ssubdiv { k } l { m } {A : nCkType k m}
 Definition nck_alt_sd {k} l { m } { A : nCkType k m }
   (a : nCkSect A) : nCkList (nCkType l m) k l :=
   nCkApply (nCkKMap nCkProj1 _ _) (nck_alt_ssubdiv l a).
+
+Fixpoint nCkMapIrrel_ab_c_c { A B C : Type } { n k } :
+ forall (f : A * B -> Type)
+  { a : nCkList A n k } { b : nCkList B n k } { c : nCkList C n k },
+ nCkSect (nCkT_S (nCkApply (nCkKMap f _ _) (nCkLPair a b)))
+  -> nCkSect
+    (nCkT_S 
+      (nCkApply
+        (nCkKMap (fun z => f ((fst z),(fst (snd z)))) _ _)
+          (nCkLPair a 
+            (nCkLPair b c)))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact X.
+      exact tt.
+    destruct k.
+      exact X.
+      exact (nCkMapIrrel_ab_c_c _ _ _ _ _ _ _ _ _ (fst X),
+              nCkMapIrrel_ab_c_c _ _ _ _ _ _ _ _ _ (snd X)).
+Defined.
+
+Fixpoint nCkMapIrrel_ab_a { A B : Type } { n k } :
+  forall (f : B -> Type)
+   { a : nCkList A n k } { b : nCkList B n k },
+   nCkSect (nCkT_S (nCkApply (nCkKMap f _ _) b)) 
+   ->
+   nCkSect (nCkT_S (nCkApply (nCkKMap (fun z => f (snd z)) _ _ )
+                      (nCkLPair a b))).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact X.
+      exact tt.
+    destruct k.
+      exact X.
+      exact (nCkMapIrrel_ab_a _ _ _ _ _ _ _ (fst X),
+            nCkMapIrrel_ab_a _ _ _ _ _ _ _ (snd X)).
+Defined.
 
 (** 
 Fixpoint nCk_alt_ssd {k} l {m}:

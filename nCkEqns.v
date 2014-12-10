@@ -102,17 +102,17 @@ Proof.
     exact (listEqn _ _ _ _ _ (fun x => X (inr x))).
 Defined.
 
-Fixpoint konstEqn { A : Type } { a : A } { n k : nat } :
+Fixpoint konstEqn { A : Type }(P : A -> Type){ a : A } { n k : nat } :
  forall cx,
-  (listFun (nCkKonst a n k) cx) = a.
+  P (listFun (nCkKonst a n k) cx) <-> P a.
 Proof.
   intros.
   destruct n.
     destruct k.
-      exact idpath.
+      ideqv.
       destruct cx.
     destruct k.
-      exact idpath.
+      ideqv.
       destruct cx.
       simpl. apply konstEqn.
       simpl. apply konstEqn.
@@ -167,29 +167,209 @@ Proof.
     unfold compose ; destruct cx ; simpl; apply sndEqn.
 Defined.
 
-Fixpoint subdivHtp { A : Type } { n k l : nat } :
-  forall a : nCkList A n k,
-   forall cx, forall cy,
-    listFun (listFun (nCkSubdiv l a) cy) cx
-      = listFun a (nCkComp cy cx).
+Fixpoint funType { n k } :
+  (nCk n k -> Type) -> nCkType n k.
 Proof.
   intros.
-  destruct n, l, k ; try contradiction; try apply idpath.
-    destruct cy; apply konstEqn.
+  destruct n.
+    destruct k.
+      exact (X tt).
+      exact tt.
+    destruct k.
+      exact (X tt).
+      exact (funType n k (fun cx => X (inl cx)),
+              funType n (S k) (fun cx => X (inr cx))).
+Defined.
+
+Fixpoint funList {A : Type} {n k} :
+  (nCk n k -> A) -> nCkList A n k.
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (X tt).
+      exact tt.
+    destruct k.
+      exact (X tt).
+      exact (funList A n k (fun cx => X (inl cx)),
+             funList A n (S k) (fun cx => X (inr cx))).
+Defined.
+
+Fixpoint sectFunType { n k } :
+  forall (T : (nCk n k -> Type)),
+    (forall cx, T cx) -> nCkSect (funType T).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (X tt).
+      exact tt.
+    destruct k.
+      exact (X tt).
+      exact (sectFunType n k _ (fun cx => X (inl cx)),
+             sectFunType n (S k) _ (fun cx => X (inr cx))).
+Defined.
+
+Fixpoint sectTypeFun { n k } :
+  forall (T : nCkType n k),
+    (forall cx, typeFun T cx) -> nCkSect T.
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      exact (X tt).
+      exact tt.
+    destruct k.
+      exact (X tt).
+      exact (sectTypeFun n k (fst T) (fun cx => X (inl cx)),
+            sectTypeFun n (S k) (snd T) (fun cx => X (inr cx))).
+Defined.
+
+Fixpoint sect_ts_forall {A : Type }(f : A -> Type){ n k } :
+  forall (a : nCkList A n k),
+    (forall cx, f (listFun a cx)) <->
+      nCkSect (nCkT_S (nCkApply (nCkKMap f _ _ ) a)).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      split; intros.
+        exact (X tt).
+        exact X.
+      split; intros.
+        exact tt.
+        destruct cx.
+    destruct k.
+     split; intros.
+      exact (X tt).
+      exact X.
+     split; intros.
+      split.
+       simpl. apply sect_ts_forall.
+        exact (fun cx => X (inl cx)).
+       simpl. apply sect_ts_forall.
+        exact (fun cx => X (inr cx)).
+      destruct cx as [ lx | rx ].
+        apply (sect_ts_forall A f n k). exact (fst X).
+        apply (sect_ts_forall A f n (S k)). exact (snd X).
+Defined.
+
+Fixpoint listFun_pairs { A B : Type } ( f : A * B -> Type )
+  { n k : nat } :
+forall (a : nCkList A n k) (b : nCkList B n k) (cx : nCk n k),
+  f (listFun a cx, listFun b cx)
+    <->
+  f (listFun (nCkLPair a b) cx).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      ideqv.
+      destruct cx.
+    destruct k.
+      ideqv.
+      destruct cx as [ lx | rx ].
+      exact ( listFun_pairs A B f n k (fst a) (fst b) lx ).
+      exact ( listFun_pairs A B f n (S k) (snd a) (snd b) rx ).
+Defined.
+
+Fixpoint lf_fst { A B : Type } ( f : A -> Type )
+ { n k : nat } :
+forall (a : nCkList A n k) (b : nCkList B n k) (cx: _),
+  f ( listFun a cx ) <-> f ( fst (listFun (nCkLPair a b) cx)).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      ideqv.
+      destruct cx.
+    destruct k.
+      ideqv.
+      destruct cx as [ lx | rx ].
+        exact (lf_fst _ _ _ n k (fst a) _ lx).
+        exact (lf_fst _ _ _ n (S k) (snd a) _ rx).
+Defined.
+
+Fixpoint lf_snd { A B : Type } ( f : B -> Type ) 
+ {n k : nat } : 
+forall (a : nCkList A n k) (b : nCkList B n k) (cx: _),
+  f ( listFun b cx ) <-> f ( snd (listFun (nCkLPair a b) cx)).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      ideqv.
+      destruct cx.
+    destruct k.
+      ideqv.
+      destruct cx as [ lx | rx ].
+      exact (lf_snd _ _ _ n k _ (fst b) lx).
+      exact (lf_snd _ _ _ n (S k) _ (snd b) rx).
+Defined.
+
+
+Fixpoint lf_comp { A B : Type } (f : A -> B) (P : B -> Type) { n k } :
+forall (a : nCkList A n k) (cx : _),
+P (listFun (nCkApply (nCkKMap f _ _ ) a) cx) <-> P (f (listFun a cx)).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      ideqv.
+      destruct cx.
+    destruct k.
+      ideqv.
+      destruct cx as [ lx | rx ].
+    exact (lf_comp A B f P n k 
+            (fst a) lx).
+    exact (lf_comp A B f P n (S k)
+            (snd a) rx).
+Defined.
+
+Fixpoint fun_tf_forall{A : Type} (f : A -> Type) { n k : nat } : 
+    forall (a : nCkList A n k),
+  forall cx, typeFun (nCkT_S (nCkApply (nCkKMap f _ _) a)) cx 
+  <->
+   f ( listFun a cx ).
+Proof.
+  intros.
+  destruct n.
+    destruct k.
+      ideqv.
+      destruct cx.
+    destruct k.
+      ideqv.
+    destruct cx as [ lx | rx ].
+      exact (fun_tf_forall A f n k (fst a) lx).
+      exact (fun_tf_forall A f n (S k) (snd a) rx).
+Defined.
+
+Fixpoint subdivHtp { A : Type }(P : A -> Type) { n k l : nat } :
+  forall a : nCkList A n k,
+   forall cx : nCk l k, forall cy : nCk n l,
+    P (listFun (listFun (nCkSubdiv l a) cy) cx)
+      <-> P (listFun a (nCkComp cy cx)).
+Proof.
+  intros.
+  destruct n, l, k ; try contradiction; try ideqv.
+    simpl.
+      clear.
+     destruct cy ;
+      apply konstEqn.
     destruct a as [ al ar ]; simpl in al, ar.
     destruct cy as [ ly | ry ].
       destruct cx as [ lx | rx ].
-      simpl.
-    path_via (listFun (listFun (nCkSubdiv l al) ly) lx).
-    refine (ap (fun z => listFun z lx) _ ).
-    apply fstEqn.
-    simpl.
-    path_via (listFun (listFun (nCkSubdiv l ar) ly) rx).
-    refine (ap (fun z => listFun z rx) _).
-    apply sndEqn. simpl.
+       simpl.
+       apply subdivHtp.
+       apply (lf_fst (fun z => P (listFun z lx) <-> _ )).
+        ideqv.
+       simpl.
+       apply subdivHtp.
+       apply (lf_snd (fun z => 
+          P (listFun z rx) <-> _ )). ideqv.
     destruct cx as [ lx | rx ] ; simpl.
-    exact (subdivHtp _ n (S k) (S l) ar (inl lx) ry).
-    exact (subdivHtp _ n (S k) (S l) ar (inr rx) ry).
+    exact (subdivHtp _ _ n (S k) (S l) ar (inl lx) ry).
+    exact (subdivHtp _ _ n (S k) (S l) ar (inr rx) ry).
 Defined.
 
 Lemma subdivEqn { A : Type } { n k l m : nat } :
@@ -210,7 +390,8 @@ Proof.
     (listFun (listFun (nCkSubdiv l a) (nCkComp cx cy)) cz).
   refine ( ap (fun z => listFun z cz) _ ).
   apply subdivHtp.
-  apply subdivHtp.
+  exact idpath.
+  apply subdivHtp. exact idpath.
   path_via
     (listFun (listFun 
       ((nCkSubdiv l) (listFun (nCkSubdiv k a) cx)) cy) cz).
@@ -219,9 +400,10 @@ Proof.
   path_via 
     (listFun a (nCkComp cx (nCkComp cy cz))).
   apply ap.
-  refine ((nCk_assoc _ _ _) ^).
-  refine ((subdivHtp _ _ _) ^).
-  refine ((subdivHtp _ _ _) ^).
+  apply nCk_assoc. exact idpath.
+  apply subdivHtp. exact idpath.
+  apply (subdivHtp _ (listFun (nCkSubdiv k a) cx)).
+    exact idpath.
   refine ( ap (fun z =>  (listFun z cz)) _ ).
   refine ( ap (fun z => listFun z cy) _).
   refine ( (kmapEqn _ )^ ).

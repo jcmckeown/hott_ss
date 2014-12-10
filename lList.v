@@ -98,8 +98,35 @@ Proof.
   auto.
   apply IHx.
 Defined.
+(**
+*)
 
-Definition LT (m : nat) := sigT (lt m).
+Fixpoint LT (m : nat) : Type :=
+  match m with
+  | O => Empty 
+  | S m' => sum Unit (LT m') end.
+
+Definition LT_S { m : nat } :
+  LT m -> LT (S m) := inr.
+
+Fixpoint LT_plus { m : nat } :
+  LT m -> LT (S m) :=
+ match m with
+ | O => fun x => match x with end
+ | S m' =>
+  fun x =>
+    match x with 
+    | inl _ => inl tt
+    | inr x => inr (LT_plus x) end end.
+
+Definition LT_Top (m : nat) : LT (S m) := inl tt.
+
+Fixpoint LT_z (m : nat) : LT (S m) :=
+  match m with
+  | O => inl tt
+  | S m' => inr (LT_z m') end.
+
+(*
 
 Definition LT_S {m : nat} : LT m -> LT (S m).
 Proof.
@@ -118,11 +145,34 @@ Proof.
   auto.
 Defined.
 
+
 Definition LT_z (l : nat) : LT (S l) :=
   ( 0 ; tt ).
+*)
 
-Definition idx { m : nat }(k : LT m) : nat :=
-  projT1 k.
+Fixpoint idx { m : nat } : 
+  LT m -> nat :=
+match m with
+ | O => fun x => match x with end
+ | S m' =>
+  fun x => 
+  match x with
+    | inl _ => m'
+    | inr x' => idx x' end end.
+
+Fixpoint idx_lt { m : nat } :
+  forall z : LT m,
+    lt m (idx z).
+Proof.
+  destruct m.
+  intros [].
+  intros.
+  destruct z.
+  apply lt_S.
+  refine (lt_trans (lt_S _) _).
+  simpl.
+  apply idx_lt.
+Defined.
 
 Definition lt_Lt { m : nat } (k l : LT m) :=
   lt ( idx k ) (idx l).
@@ -136,10 +186,22 @@ Defined.
 Lemma eq_m_eq { n : nat } { k l : LT n } :
   idx k = idx l -> k = l.
 Proof.
-  intro.
-  destruct k. destruct l. simpl in H.
-  destruct H. apply ap.
-  apply hset_lt.
+  induction n.
+    destruct l.
+  intros.
+    destruct k.
+    destruct l.
+      destruct u; destruct u0; auto.
+      destruct u. simpl in H.
+      destruct
+        (nLt_xx (transport (fun z => lt n z) H^ (idx_lt l))).
+    destruct l.
+      simpl in H.
+        destruct (nLt_xx (transport (lt n) H (idx_lt l0))).
+      simpl in H.
+      apply ap.
+      apply IHn.
+      auto.
 Defined.
 
 Lemma dec_eq_mval { l : nat } : decidable_paths (LT l).
@@ -208,7 +270,7 @@ Fixpoint lT_fun { l : nat } :
 match l return ( LT l -> Type) -> lType l with
  | O => fun _ => tt
  | S l' => fun f : LT (S l') -> Type =>
-   ( f ( LT_z _ ) , lT_fun ( f o LT_plus) ) end.
+   ( f ( LT_Top _ ) , lT_fun ( f o LT_S) ) end.
 
 Fixpoint lS_fun { l : nat } :
   forall { T : LT l -> Type }, ( forall z, T z ) ->  lSect (lT_fun T) :=
@@ -218,7 +280,7 @@ match l return ( forall T : LT l -> Type, (forall z, T z) -> lSect (lT_fun T) )
  | S l' => 
   fun T : (LT (S l') -> Type ) =>
     fun f : forall z, T z =>
-     ( f ( LT_z _ ) , lS_fun ( fun r : LT l' => f (LT_plus r) ) ) end.
+     ( f ( LT_Top _ ) , lS_fun ( fun r : LT l' => f (LT_S r) ) ) end.
 
 Fixpoint lS_eqn { l : nat } :
   forall { T : LT l -> Type }, forall {f g : forall z, T z },
@@ -228,7 +290,7 @@ match l return ( forall { T : LT l -> Type }, forall {f g : forall z, T z },
  | O => fun T f g h => @idpath _ tt
  | S l' => fun T f g h =>
   @path_prod _ _ (lS_fun f) (lS_fun g)
-    (h (LT_z _)) (lS_eqn (fun z => h (LT_plus z))) end.
+    (h (LT_Top _)) (lS_eqn (fun z => h (LT_S z))) end.
 
 Fixpoint lS_map { l : nat } : 
  forall { U V : LT l -> Type } ( f : forall z, U z -> V z ),
@@ -239,7 +301,7 @@ Proof.
   exact tt.
   intros U V f s.
   destruct s as [ s0 s' ].
-  exact ( f _ s0 , lS_map l' _ _ (fun z => f ( LT_plus z)) s' ).
+  exact ( f _ s0 , lS_map l' _ _ (fun z => f ( LT_S z)) s' ).
 Defined.
 
 Fixpoint lT_map { l : nat } :
@@ -250,7 +312,7 @@ Proof.
   intros U f s.
   exact tt.
   intros U f [ s0 s' ].
-  exact ( f _ s0 , lT_map l' _ (fun z => f (LT_plus z)) s').
+  exact ( f _ s0 , lT_map l' _ (fun z => f (LT_S z)) s').
 Defined.
 
 Fixpoint lS_tMap { l : nat } :
@@ -264,7 +326,7 @@ Proof.
   intros.
   exact tt.
   intros.
-  exact ( fst h , lS_tMap _ _ (fun z => f (LT_plus z)) (fun z => s (LT_plus z)) (snd h) ).
+  exact ( fst h , lS_tMap _ _ (fun z => f (LT_S z)) (fun z => s (LT_S z)) (snd h) ).
 Defined.
 
 Fixpoint lS_Mapt { l : nat } :
@@ -278,17 +340,43 @@ Proof.
   intros.
   exact tt.
   intros.
-  exact ( fst h, lS_Mapt _ _ (fun z => f (LT_plus z)) (fun z => s (LT_plus z)) (snd h)).
+  exact ( fst h, lS_Mapt _ _ (fun z => f (LT_S z)) (fun z => s (LT_S z)) (snd h)).
 Defined.
 
 Fixpoint fun_lS { l : nat } :
   forall (U : LT l -> Type ), lSect (lT_fun U) -> forall z, U z.
 Proof.
   destruct l.
-  intros U f [ _ []].
-  intros U f [ z ord].
-  destruct z. destruct ord. exact ( fst f ).
-  refine (fun_lS l _ (snd f) (z ; ord) ).
+  intros U f [].
+  intros U f z.
+  destruct z as [ [] | z ].
+  simpl in *.
+  exact ( fst f ).
+  refine (fun_lS l _ (snd f) z ).
+Defined.
+
+Fixpoint fun_lT { l : nat } :
+  (lType l) -> (LT l) -> Type.
+Proof.
+  destruct l.
+    intros _ [ ].
+    intros T z.
+    destruct z.
+      exact (fst T).
+      exact (fun_lT l (snd T) l0).
+Defined.
+
+Fixpoint lS_fun' { l : nat } :
+  forall ( T : lType l ),
+    (forall z, (fun_lT T) z) -> lSect T.
+Proof.
+  destruct l.
+  intros. exact tt.
+  intros.
+  destruct T as [ T0 T ].
+  split.
+  exact ( X (LT_Top _)).
+  exact ( lS_fun' _ T (fun z => X (LT_S z))).
 Defined.
 
 Fixpoint lT_S { l : nat } :
@@ -327,3 +415,20 @@ match l with
  | O => fun _ => tt
  | S l' => fun W =>
   (snd (fst W), l_Lsnd (snd W) ) end.
+
+Fixpoint lf_t_elim { l : nat } :
+  forall T : LT l -> Type,
+    forall z, T z ->
+      fun_lT (lT_fun T) z.
+Proof.
+  induction l.
+  intros.
+    destruct z.
+  intros.
+    destruct z.
+      simpl. destruct u. exact X.
+      simpl.
+      unfold compose.
+      auto.
+Defined.
+
