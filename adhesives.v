@@ -4,8 +4,6 @@ Require Export
  generalLists
  nCkEqns.
 
-(* this one really belongs in nCk.v ... *)
-
 Fixpoint blobList (A : nat -> Type) (n k: nat) :
   lType k :=
 match k with

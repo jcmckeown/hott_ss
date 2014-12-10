@@ -1,94 +1,18 @@
 Require Import
- HoTT
- Nat
- generalLists
- FunctionRels.
-
-(** I wonder what happens if we don't bother with lList? *)
-
-Fixpoint ListOfNcKS
-  ( A : nat -> Type )
-  ( n k : nat ) : Type :=
-match k with
-  | O => Unit
-  | S k' => nCkList (A k') n k' * ListOfNcKS A n k' end.
-
-Fixpoint baseColor (A : nat -> Type) (n k : nat) :
- (ListOfNcKS A n (S k)) -> (A 0).
-Proof.
-  destruct k.
-   intros.
-    destruct n.
-      exact ( fst X ).
-      exact ( fst X ).
-   intros.
-    exact (baseColor A n k (snd X)).
-Defined.
-
-Fixpoint listFromColor (A : nat -> Type) (n : nat) :
-  (A 0) -> ListOfNcKS A 0 (S n).
-Proof.
-  destruct n.
-  intros. exact (X , tt).
-  intros.
-  split. exact tt.
-  auto.
-Defined.
-
-Fixpoint ListOfSubdivs 
-  ( A : nat -> Type )
-  ( k l m : nat )
-  : (ListOfNcKS A m k) -> nCkList (ListOfNcKS A l k) m l.
-Proof.
-  destruct m.
-    destruct l.
-      intros.
-        destruct k.
-          exact X.
-          exact X.
-      intros.
-        exact tt.
-    destruct l.
-      intros.
-        destruct k.
-          exact X.
-          apply listFromColor. exact (baseColor _ _ _ X).
-      intros.
-      destruct k.
-        simpl ListOfNcKS. apply nCkKonst. exact tt.
-        destruct X.
-        apply nCkLPair.
-        refine ( nCkSubdiv _ n ).
-        auto.
-Defined.
+ FunctionRels
+ adhesives.
 
 Record Adjacency : Type := {
   adj_Names : nat -> Type;
-  adj_Rels : 
-    forall n, ((adj_Names (S n)) * (nCkList (adj_Names n) (S n) n)) -> Type
+  adj_Rels : adhesive adj_Names
   }.
 
-Fixpoint glueType (A : Adjacency) { k l : nat} :
-  (ListOfNcKS (adj_Names A) k (S l)) -> Type.
-Proof.
-  destruct l.
-  intros.
-    exact Unit.
-  intros.
-(*    destruct X as [ X0 [X1 Xrest] ]. *)
-    refine ( _ * glueType A _ _ (snd X)).
-    refine ( @nCkSect k (S l) (nCkT_S _)).
-    refine ( nCkApply (nCkKMap (adj_Rels A l) _ _ ) _).
-    apply nCkLPair.
-      exact (fst X).
-      refine (nCkSubdiv _ (fst (snd X))).
-Defined.
 
 Definition frame (A : Adjacency) (n k : nat) :=
   { 
-    facets : ListOfNcKS (adj_Names A) n (S k)
+    facets : lSect (blobList (adj_Names A) n (S k))
       & 
-      glueType A facets }.
+      lSect (gluetype _ (adj_Rels A) facets) }.
 
 Definition Cell (A : Adjacency) (n : nat) :=
   frame A n n.
@@ -96,6 +20,7 @@ Definition Cell (A : Adjacency) (n : nat) :=
 Definition topFacet (A : Adjacency) (n : nat) (C : Cell A n) : 
   adj_Names A n := nCTop (fst (C .1)).
 
+(*
 Fixpoint frameFromColor (A : Adjacency) (n : nat) :
   forall a : (adj_Names A) 0,
    glueType A (listFromColor (adj_Names A) n a).
@@ -108,7 +33,9 @@ Proof.
     simpl.
     auto.
 Defined.
+*)
 
+(*
 Fixpoint nCkAllUnitSect {A} { n l } :
   forall s : nCkList A n l,
     (nCkSect (nCkT_S (nCkApply (nCkKMap (fun _ : A => Unit : Type) _ _ ) s ))).
@@ -208,7 +135,7 @@ Proof.
 
 Abort.
 (*          *)
-
+*)
 
 Lemma fskel { A : Adjacency } n k l :
   forall (C : frame A n k),
@@ -216,81 +143,26 @@ Lemma fskel { A : Adjacency } n k l :
 Proof.
   intros.
   refine 
-    (nCkLExistT ( ListOfSubdivs _ _ _ _ ( C .1 ) ) _).
-  destruct C as [ leaves glue ].
-  simpl projT1.
-  destruct n.
-    destruct l. exact glue. exact tt.
-    destruct l. simpl.
-      destruct k. exact tt.
-        refine ( tt , _ ).
-        destruct glue. simpl.
-        apply frameFromColor.
-      destruct k.
-        split. simpl.
-        destruct leaves. simpl.
-        apply nCkAllUnitSect.
-        apply nCkAllUnitSect.
-      destruct glue as [ gf gr ].
-        set ( helpr := fskel 
-      destruct leaves as [ lf lr ].
-      destruct gf as [ gf1 gf2 ].
-      destruct lf as [ lf1 lf2 ].
-      assert ( help1 := nCkSSubdiv l gf1).
-      assert ( help2 := nCkSSubdiv (S l) gf2).
-    
-
-(* (frame A 0 (S k) ) means ( S k ) layers of 
-  ( 0 -choose- l things from (A.1 l) for l ≤ k ), 
-  and glue between the layers; this means 0 things from the upper layers
-  and one thing from (A.1 0), the unique bottom thing of C ... .  But how to work it... *)
-  
-(* I think this fragment was lifted from another proof. not sure...
-
-    destruct C as [ facets glue ].
-  set ( ff := fun_lS _ facets ).
-  set ( gf := fun_lS _ glue ).
-  set ( helper :=
-    lS_fun (fun z => nCkSubdiv k (ff z)) ).
-  set ( helper2 :=
-    lS_fun (fun z => nCkSSubdiv k (gf (z.1 ; z.2) ) ) ).
-  
-  destruct k.
-    destruct n.
-      exists ( ff ( 0 ; tt ) , tt).
-      exact tt.
-      exists ( ff ( 0 ; tt ) , tt).
-      exact tt.
-    destruct n.
-      exact tt.
-    split.
-      simpl.
-
-
-  intro cx.
-exists ( fun k => (fun_list (nCkSubdiv _ (facets k)) cx) ).
-intros.
-rewrite nCkEqn.
-refine ( transport _ _ (glue _ (nCkCompose cx z))).
-unfold nCkSubdiv.
-repeat progress ( rewrite fl_inv ).
-apply nCkLEqn.
-intro cz.
-repeat progress ( rewrite fl_inv ).
-apply ap.
-symmetry.
-exact (nCkAssoc cx z cz).
+    (nCkLExistT (subdivided_blob_list l (C.1)) _).
+  assert ( ans := glue_from_glue _ l C.2 ).
+  unfold partitionSubdivided in ans.
+  apply sect_ts_forall.
+  intro.
+  assert ( help :=
+    let ( _ , hlp ) :=
+      sect_ts_forall lSect 
+        (nCkApply _ _) in hlp ans cx).
+  apply lf_comp. auto.
 Defined.
-*)
 
 Fixpoint boundary (A : Adjacency) (n : nat) (C : Cell A (S n)) :
   nCkList (Cell A n) (S n) n.
 Proof.
-  destruct C as [ facets glue ].
-  destruct n.
-    exists ( (fun_lS _ facets ( 0 ; tt )) , tt ).
-    exact tt.
-  
-  split.
-  
-Abort.
+  set ( R := fskel _ _ n C ).
+  refine ( nCkApply (nCkKMap _ _ _ ) R ).
+  intros.
+  destruct X as [ fs gs ].
+  exists (snd fs).
+  exact (snd gs).
+Defined.
+
