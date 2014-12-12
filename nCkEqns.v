@@ -307,7 +307,6 @@ Proof.
       exact (lf_snd _ _ _ n (S k) _ (snd b) rx).
 Defined.
 
-
 Fixpoint lf_comp { A B : Type } (f : A -> B) (P : B -> Type) { n k } :
 forall (a : nCkList A n k) (cx : _),
 P (listFun (nCkApply (nCkKMap f _ _ ) a) cx) <-> P (f (listFun a cx)).

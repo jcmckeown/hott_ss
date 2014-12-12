@@ -5,6 +5,22 @@ Require Export
   lList
   austere_nCk.
 
+Fixpoint nCk_lt (n k : nat) : nCkList (lt (S n) k) n k.
+Proof.
+  destruct n.
+    destruct k.
+      exact tt.
+      exact tt.
+    destruct k.
+      exact tt.
+    split.
+      change (nCkList (lt (S n) k) n k). apply nCk_lt.
+      change (nCkList (lt (S n) k) n (S k)).
+      refine (nCkApply (nCkKMap _ _ _) (nCk_lt n (S k))).
+      intro.
+      refine (lt_trans (lt_S _) X).
+Defined.
+
 Fixpoint l_nck_nck_l { k l m : nat } :
   lList (nCkType k l) m -> nCkList (lType m) k l.
 Proof.

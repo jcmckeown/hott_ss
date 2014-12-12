@@ -20,123 +20,6 @@ Definition Cell (A : Adjacency) (n : nat) :=
 Definition topFacet (A : Adjacency) (n : nat) (C : Cell A n) : 
   adj_Names A n := nCTop (fst (C .1)).
 
-(*
-Fixpoint frameFromColor (A : Adjacency) (n : nat) :
-  forall a : (adj_Names A) 0,
-   glueType A (listFromColor (adj_Names A) n a).
-Proof.
-  intros.
-  destruct n.
-    exact tt.
-    split.
-    exact tt.
-    simpl.
-    auto.
-Defined.
-*)
-
-(*
-Fixpoint nCkAllUnitSect {A} { n l } :
-  forall s : nCkList A n l,
-    (nCkSect (nCkT_S (nCkApply (nCkKMap (fun _ : A => Unit : Type) _ _ ) s ))).
-Proof.
-  intros.
-  destruct n.
-    destruct l.
-      exact tt.
-      exact tt.
-    destruct l.
-      exact tt.
-      exact ( nCkAllUnitSect _ _ _ (fst s),
-              nCkAllUnitSect _ _ _ (snd s) ).
-Defined.
-
-Definition subdiv_step { A : Adjacency }{ n k } l 
-    ( C1 : nCkList (adj_Names A (S k)) n (S k) )
-    ( C2 : nCkList (adj_Names A k) n k )
-    ( gg : nCkSect (nCkT_S (nCkApply (nCkKMap (adj_Rels A k) _ _)
-                                              (nCkLPair C1 (nCkSubdiv _ C2)) ) ) )
-  := nCkSSubdiv l gg.
-
-Fixpoint layeredSubdivs { A : Adjacency } { n k } (l : nat) :
-   forall (fs : ListOfNcKS (adj_Names A) n (S k)), glueType A fs -> Type.
-Proof.
-    destruct k.
-    intros.
-      exact Unit.
-    intros. simpl in X.
-    refine ( _ * _ ).
-    exact (nCkSect
-            (listT_of_Sects 
-              (nCkTSubdiv l 
-                (nCkT_S
-                   (nCkApply
-                           (nCkKMap (adj_Rels A k) n (S k))
-                           (nCkLPair (fst fs) 
-                                     (nCkSubdiv (S k) (fst (snd  fs)))
-                            )
-                    )
-                 )
-               )
-             )
-          ). (** That ugly thing is exactly the computed return type of subdiv_step. and that's why *)
-    exact ( layeredSubdivs A _ _ l (snd fs) (snd X)).
-Defined.
-
-Fixpoint raw_fskel { A : Adjacency }{n k} l :
-   forall (fs : ListOfNcKS (adj_Names A) n (S k)) (gs : glueType A fs),
-     layeredSubdivs l fs gs 
- :=
-  match k with
-  | O => fun (fs : ListOfNcKS (adj_Names A) n (S O))(gs : glueType A fs) => tt 
-  | S k' => fun (fs : ListOfNcKS (adj_Names A) n (S (S k')))
-                (gs :  glueType A fs) =>
-            ( subdiv_step l (fst fs) (fst (snd fs)) (fst gs) , raw_fskel l (snd fs) (snd gs) ) end.
-
-Lemma e_fskel { A : Adjacency } { n k } l :
-  forall (fs : ListOfNcKS (adj_Names A) n (S k))
-         (gs : glueType A fs),
-    nCkSect (nCkT_S (nCkApply (nCkKMap (fun facets => glueType A facets) n l)
-                              ( ListOfSubdivs (adj_Names A) (S k) l n fs ))).
-Proof.
-  intros.
-  assert ( Guide := raw_fskel l fs gs ).
-  destruct k.
-    destruct l.
-      destruct n.
-        exact tt.
-        exact tt.
-      destruct n.
-        exact tt.
-        split.
-        simpl.
-          destruct fs.
-          apply nCkAllUnitSect.
-          apply nCkAllUnitSect.
-      destruct n.
-        destruct l.
-          refine ( tt, _ ).
-          simpl. exact (snd gs).
-          exact tt.
-        destruct l.
-          refine (tt, _).
-           simpl. apply frameFromColor.
-          destruct fs as [ f1a [ f1b fs ] ].
-          destruct gs as [ g1 gs ].
-          unfold snd in gs.
-        destruct Guide as [ Guide1 Guide2 ].
-        split.
-        simpl.
-
-(** Check nCkSSubdiv (S l) C2ab *)
-  
-        unfold ListOfSubdivs.
-          lazy delta.
-
-Abort.
-(*          *)
-*)
-
 Lemma fskel { A : Adjacency } n k l :
   forall (C : frame A n k),
     nCkList (frame A l k) n l.
@@ -155,14 +38,261 @@ Proof.
   apply lf_comp. auto.
 Defined.
 
-Fixpoint boundary (A : Adjacency) (n : nat) (C : Cell A (S n)) :
-  nCkList (Cell A n) (S n) n.
+Fixpoint bottomLayer (A : Adjacency) { n k : nat } :
+  frame A n k -> frame A n 0.
 Proof.
-  set ( R := fskel _ _ n C ).
-  refine ( nCkApply (nCkKMap _ _ _ ) R ).
-  intros.
-  destruct X as [ fs gs ].
-  exists (snd fs).
-  exact (snd gs).
+  destruct k.
+    intro. exact X.
+(*  intros [ [ a fs ] [ _ gs]].
+    simpl in gs. clear a. *)
+  intro X.
+  exact (bottomLayer _ _ _ 
+    (snd X.1; snd X.2)).
 Defined.
 
+Fixpoint excessFrame (A : Adjacency) { n k : nat } :
+  frame A n k -> (lt (S k) n) -> Cell A n.
+Proof.
+  destruct k.
+    destruct n.
+    intros. exact X.
+    contradiction.
+  intros.
+    destruct n.
+      refine (bottomLayer _ X).
+    destruct (opt_ltS X0).
+      destruct p.
+      exact X.
+(*    destruct X as 
+      [ [ a fs ] [ b gs ]]. *)
+    exact (excessFrame A (S n) k (snd X.1 ; snd X.2) l).
+Defined.
+
+Lemma cellFaces (A : Adjacency) (n k : nat) :
+  Cell A n -> nCkList (Cell A k) n k.
+Proof.
+  intro.
+  assert (help := fskel _ _ k X).
+  assert (evenBetter := nCkLPair help (nCk_lt _ _)).
+  refine (nCkApply (nCkKMap _ _ _ ) evenBetter ).
+  intro. (* intros [ fm ord ]. *)
+  exact (excessFrame _ (fst X0) (snd X0)).
+Defined.
+
+Definition boundary (A : Adjacency) (n : nat) := (cellFaces A (S n) n).
+
+Record MapsComplex := { 
+  mc_spaces : nat -> Type;
+  mc_maps : forall n,
+    mc_spaces (S n) -> nCkList (mc_spaces n) (S n) n
+}.
+
+Definition mapRels :
+  MapsComplex -> Adjacency :=
+ fun M =>
+  {| adj_Names := mc_spaces M ; 
+     adj_Rels := fun n => 
+      fun z => valPath (mc_maps M n) (fst z) (snd z) |}.
+
+Definition relMaps :
+  Adjacency -> MapsComplex :=
+ fun Adj =>
+  {| mc_spaces := Cell Adj ;
+    mc_maps := boundary Adj |}.
+
+Fixpoint frameList (A : Adjacency) (n k : nat):
+  Cell A n ->
+    lSect (blobList (adj_Names (mapRels (relMaps A))) n k).
+Proof.
+  intros.
+  destruct k.
+    exact tt.
+    split.
+    simpl.
+    exact (cellFaces A n k X).
+    exact (frameList A n k X).
+Defined.
+
+Lemma cellClosure (A : Adjacency) (n k : nat) :
+  Cell A n -> frame (mapRels (relMaps A)) n k.
+Proof.
+  intro.
+  exists (frameList A n (S k) X).
+  induction k.
+    exact tt.
+  simpl.
+    unfold valPath.
+    split; try apply IHk.
+    clear.
+    apply sect_ts_forall.
+    intro.
+    apply lf_fst.
+    apply lf_snd.
+    apply listEqn.
+    intro cy.
+    apply subdivHtp.
+    unfold boundary.
+    revert cx cy.
+    generalize (S k) as l.
+    intros. (** this really should be obvious by now... *)
+  admit.
+Defined.
+
+(*
+ 
+ Check cellClosure_admitted
+ 
+ *)
+
+(** some things one can try ... 
+
+(*
+  unfold cellFaces.
+  intros.
+  apply lf_comp. apply lf_snd.
+  apply lf_fst.
+  apply lf_comp.
+  apply lf_fst.
+  apply lf_snd.
+  apply lf_comp.
+  apply lf_fst. apply lf_snd. *)
+  
+  revert k X l cx cy.
+  induction n.
+    intros.
+    destruct l; try contradiction.
+    destruct k; try contradiction.
+    auto.
+    destruct l.
+      destruct k; try contradiction.
+      intros.
+      simpl.
+      unfold cellFaces at 2.
+      simpl.
+      unfold fskel. simpl.
+        destruct (cellFaces A (S n) 0 X). destruct l.
+          destruct x. destruct l. auto.
+    intros.
+    destruct cx as [ lx | rx ].
+     destruct k.
+      destruct cy. simpl nCkComp. lazy beta iota.
+    apply lf_comp.
+    clear.
+    revert cx cy. clear.    
+
+*)    
+
+Definition cellCompletion (A : Adjacency) (n : nat) :
+  Cell A n -> Cell (mapRels (relMaps A)) n :=
+    cellClosure A n n.
+
+Lemma cellTopCell (A : Adjacency) (n : nat) :
+forall C : Cell A n,
+  topFacet _ _ (cellCompletion A n C) = C.
+Proof.
+  admit.
+  (* Just for fun, kill the "admit" there and run these
+   instead :
+  induction n.
+  intro.
+  
+  unfold cellCompletion.
+  destruct C. destruct l.
+  destruct x. destruct l. exact idpath.
+    destruct n.
+      intro.
+      destruct C.
+        destruct x.
+          destruct l0.
+          destruct l0.
+          destruct l.
+          destruct l.
+          destruct n.
+          simpl in n, n2.
+          destruct n2.
+          cbv in n0.
+          destruct A.
+          destruct n1.
+          destruct n2.
+          cbv in n1.
+          simpl in n.
+          exact idpath.
+    destruct n.
+     intro.
+     destruct C.
+      destruct x as [ x2 [ x1 [ x0 [] ] ]].
+      destruct x2 as [ [ x2 [] ] [ [] [] ] ].
+      simpl in x2.
+      destruct x1 as [ x1a [ x1b []]] .
+        simpl in x1a, x1b.
+    change (adj_Names A 0) in x0.
+     destruct l as [ l1 [ l0 []]].
+     simpl in l1.
+     simpl in l0.
+    destruct l1 as [ [ w [] ] [ [] []]].
+    destruct l0 as [ wa [ wb [] ] ].
+    exact idpath.
+    (** etc. *)
+    *)
+Qed.
+
+(** This promotes a mapsComplex to a coloured simplicial set *)
+
+Definition IsCSimplicialSet (M : MapsComplex) :=
+forall n, IsEquiv (topFacet (mapRels M) n).
+
+(** an ordinary semisimplicial set... *)
+Record SimplicialSet := {
+  SS_M : MapsComplex;
+  SS_Simpl : IsCSimplicialSet SS_M;
+  SS_Contr : Contr (mc_spaces SS_M 0)
+}.
+
+Definition ifZElse { A : Type } (zcase : A ) ( seq : nat -> A ) :
+ nat -> A :=
+fun z => match z with
+| O => zcase
+| S n => seq (S n) end.
+
+Definition pushMaps ( M : MapsComplex ) ( X : Type )
+  (f : mc_spaces M 0 -> X) :
+  MapsComplex.
+Proof.
+  exists ( ifZElse X (mc_spaces M)).
+  intros.
+  destruct n; simpl in *.
+  apply f.
+  apply (mc_maps M 0).
+  auto.
+  apply (mc_maps M (S n)).
+  auto.
+Defined.
+
+Lemma pushFrames (M : MapsComplex) (X : Type) 
+  (f : mc_spaces M 0 -> X)(n k : nat) :
+  frame (mapRels M) n k -> frame (mapRels (pushMaps M X f)) n k.
+Proof.
+  intros [ fs gs ].
+  induction k.
+  simpl in *.
+   destruct n;
+    exists ( f (fst fs) , tt ); exact tt.
+  
+
+Lemma push_simplicial (M : MapsComplex) (X : Type) 
+  (f : mc_spaces M 0 -> X ) ( H : IsCSimplicialSet M ) :
+    IsCSimplicialSet (pushForward M X f).
+Proof.
+  intro.
+  destruct n.
+    unfold topFacet.
+    unfold nCTop.
+    unfold mapRels.
+    unfold Cell.
+    unfold frame.
+    simpl.
+      apply isequiv_adjointify with
+        (fun x => existT (fun _ => Unit) ( x , tt ) tt ).
+      intro. auto. intro. destruct x. destruct u. destruct x.
+      destruct u. auto.
+    
