@@ -108,12 +108,8 @@ forall ( Z : lSect (blobList A n (S k)) ),
   (compared to my others, anyways)
   but it really isn't as bad as it looks; the decisions at every stage
   are meant to be the most straight-forward, given how we want to
-  simplify either the goal or a hypothesis.
+  simplify either the goal or an hypothesis.
   I should love to see it automated better
-  (and it *was* more automatic until I found I needed to specify
-  predicate functions, later; there was something magic about it...)
-  I'm also not sure there aren't too many different lemmata doing
-  too-similar things; can "nCkMPair" be circumvented via listFun_pairs?
   *)
 
 Lemma glue_from_glue  { A } (adh : adhesive A) { n } l { k } :
@@ -128,25 +124,17 @@ Proof.
     intros.
     simpl.
     destruct Z as [ Z0 Z ].
+    apply sect_ts_forall. intro.
     unfold partitionSubdivided.
-    simpl.
-    apply nCkMCompose.
-    unfold compose.
+     apply lf_comp. simpl.
+     apply lf_snd.
+      apply lf_fst.
+     apply lf_fst.
     destruct zg as [ zg0 zg ].
-    apply nCkMPair.
-
-    apply (sect_ts_forall (fun z => nCkSect (nCkT_S _ ))).
-    intros.
-    apply (sect_ts_forall (adh k)).
-    intros.
-    apply (listFun_pairs (adh k)).
-    apply
-      (lf_fst (fun z => adh k (listFun z cx0 , _ ) ) _ _ _).
-    apply
-      (lf_snd (fun z => adh k ( _ , listFun (nCkSubdiv (S k) (fst z)) cx0)) 
-        _ _ _ ).
-    apply
-      (lf_fst (fun z => adh k ( _ , listFun (nCkSubdiv (S k) z) cx0)) _ _ _ ).
+    split.
+     apply (sect_ts_forall (adh k)).
+     intro.
+     apply listFun_pairs.
     apply subdivHtp.
     assert ( help :=
       let ( _ , hlp ) := sect_ts_forall (adh k) (nCkLPair Z0 (nCkSubdiv _ (fst Z)))
@@ -162,18 +150,11 @@ Proof.
     apply subdivHtp.
     apply subdivHtp.
     apply subdivHtp.
-    apply ap.
     apply nCk_assoc. exact idpath.
+    apply (lf_comp (gluetype A adh) lSect).
     assert  ( rough := IHk Z zg ).
-    apply sect_ts_forall.
-    intro.
-    apply lf_snd.
-    assert ( help := let 
+    refine ( let 
      ( _ , hlp ) :=
       sect_ts_forall lSect (partitionSubdivided adh l Z) in
         hlp rough cx).
-    unfold partitionSubdivided in help.
-    simpl in help.
-    apply (lf_comp (gluetype A adh) lSect).
-    auto.
 Defined.

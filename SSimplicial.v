@@ -51,21 +51,21 @@ Proof.
 Defined.
 
 Fixpoint excessFrame (A : Adjacency) { n k : nat } :
-  frame A n k -> (lt (S k) n) -> Cell A n.
+  (lt (S k) n) -> frame A n k -> Cell A n.
 Proof.
   destruct k.
     destruct n.
-    intros. exact X.
+    intros ord X. exact X.
     contradiction.
-  intros.
+  intros ord X.
     destruct n.
       refine (bottomLayer _ X).
-    destruct (opt_ltS X0).
+    destruct (opt_ltS ord).
       destruct p.
       exact X.
 (*    destruct X as 
       [ [ a fs ] [ b gs ]]. *)
-    exact (excessFrame A (S n) k (snd X.1 ; snd X.2) l).
+    exact (excessFrame A (S n) k l (snd X.1 ; snd X.2)).
 Defined.
 
 Lemma cellFaces (A : Adjacency) (n k : nat) :
@@ -73,7 +73,7 @@ Lemma cellFaces (A : Adjacency) (n k : nat) :
 Proof.
   intro.
   assert (help := fskel _ _ k X).
-  assert (evenBetter := nCkLPair help (nCk_lt _ _)).
+  assert (evenBetter := nCkLPair (nCk_lt _ _) help).
   refine (nCkApply (nCkKMap _ _ _ ) evenBetter ).
   intro. (* intros [ fm ord ]. *)
   exact (excessFrame _ (fst X0) (snd X0)).
@@ -94,7 +94,63 @@ Definition mapRels :
      adj_Rels := fun n => 
       fun z => valPath (mc_maps M n) (fst z) (snd z) |}.
 
-Definition relMaps :
+Definition frameMaps : 
+  forall k, Adjacency -> MapsComplex :=
+  fun k => fun Adj =>
+  {| mc_spaces := fun n => frame Adj n k ;
+     mc_maps := fun n => fskel _ _ _ |}.
+
+Fixpoint relFrameList (A : Adjacency) (n k l : nat) :
+  frame A n k ->
+    lSect (blobList (adj_Names (mapRels (frameMaps k A))) n l).
+Proof.
+  intro.
+  destruct l.
+    exact tt.
+    split.
+    simpl.
+    apply fskel. assumption.
+    apply relFrameList. assumption.
+Defined.
+
+Lemma relClosure (A : Adjacency) (n k l : nat) :
+  frame A n k -> frame (mapRels (frameMaps k A)) n l.
+Proof.
+  intro.
+  exists (relFrameList _ _ _ _ X).
+  induction l.
+    exact tt.
+  simpl.
+   split.
+   unfold valPath.
+   apply sect_ts_forall.
+   intro.
+   apply lf_snd. apply lf_fst.
+   apply listEqn.
+    intro cy.
+    apply subdivHtp.
+    revert cx cy.
+    clear. generalize (S l) as m.
+    (** It'd be nice to really have this as it ought to be;  I'm afraid
+     there's too much re-packaging of multidimensional things to really
+     keep in one's head all at once; *)
+    admit.
+   auto.
+Defined.
+
+(** Check relClosure_admitted :
+       forall (A : Adjacency) (n k l : nat) (X : frame A n k) (m : nat)
+         (cx : nCk n m) (cy : nCk m l),
+       listFun (fskel n k l X) (nCkComp cx cy) =
+       listFun (fskel m k l (listFun (fskel n k m X) cx)) cy
+ *)
+
+(** `( cellMaps Adj )` is `lim_k ( relMaps k Adj )` ;
+  the sense of limit here is mostly-uninteresting; one checks that
+  ( H : lt (S k) n ├─ IsEquiv (excessFrame Adj H) )
+*)
+
+Definition cellMaps :
   Adjacency -> MapsComplex :=
  fun Adj =>
   {| mc_spaces := Cell Adj ;
@@ -102,7 +158,7 @@ Definition relMaps :
 
 Fixpoint frameList (A : Adjacency) (n k : nat):
   Cell A n ->
-    lSect (blobList (adj_Names (mapRels (relMaps A))) n k).
+    lSect (blobList (adj_Names (mapRels (cellMaps A))) n k).
 Proof.
   intros.
   destruct k.
@@ -114,7 +170,7 @@ Proof.
 Defined.
 
 Lemma cellClosure (A : Adjacency) (n k : nat) :
-  Cell A n -> frame (mapRels (relMaps A)) n k.
+  Cell A n -> frame (mapRels (cellMaps A)) n k.
 Proof.
   intro.
   exists (frameList A n (S k) X).
@@ -183,7 +239,7 @@ Defined.
 *)    
 
 Definition cellCompletion (A : Adjacency) (n : nat) :
-  Cell A n -> Cell (mapRels (relMaps A)) n :=
+  Cell A n -> Cell (mapRels (cellMaps A)) n :=
     cellClosure A n n.
 
 Lemma cellTopCell (A : Adjacency) (n : nat) :
@@ -268,17 +324,51 @@ Proof.
   auto.
 Defined.
 
+Fixpoint pushList (M : MapsComplex) (X : Type) 
+  (f : mc_spaces M 0 -> X)(n k : nat) { struct k }:
+  lSect (blobList (adj_Names (mapRels M)) n (S k))
+   -> lSect (blobList (adj_Names (mapRels (pushMaps M X f))) n (S k)).
+Proof.
+  intros.
+  destruct k.
+    simpl.
+    split.
+    destruct n; apply f ; exact (fst X0).
+    exact tt.
+  exact (fst X0 , pushList _ _ _ _ _ (snd X0)).
+Defined.
+
 Lemma pushFrames (M : MapsComplex) (X : Type) 
   (f : mc_spaces M 0 -> X)(n k : nat) :
   frame (mapRels M) n k -> frame (mapRels (pushMaps M X f)) n k.
 Proof.
   intros [ fs gs ].
+  exists ( pushList M X f _ _ fs ).
+  destruct k. exact tt.
   induction k.
-  simpl in *.
-   destruct n;
-    exists ( f (fst fs) , tt ); exact tt.
-  
+    split.
+    apply sect_ts_forall.
+    intro. unfold mapRels. unfold adj_Rels. unfold valPath.
+      apply lf_snd. apply lf_fst.
+      destruct n. destruct cx.
+      destruct gs. destruct l.
+    assert ( help := let ( _ , hlp) := sect_ts_forall _ (nCkLPair _ _ )
+      in hlp n0 cx).
+    unfold mapRels in help.
+    unfold adj_Rels in help.
+    unfold valPath in help.
+    revert help. apply lf_snd. apply lf_fst.
+    destruct cx ; simpl; apply konstEqn.
+    apply konstEqn. apply ap.
+    apply konstEqn. apply ap.
+    exact tt.
+  split.
+    exact (fst gs).
+    apply IHk.
+    exact (snd gs).
+Defined.
 
+(*
 Lemma push_simplicial (M : MapsComplex) (X : Type) 
   (f : mc_spaces M 0 -> X ) ( H : IsCSimplicialSet M ) :
     IsCSimplicialSet (pushForward M X f).
@@ -295,4 +385,4 @@ Proof.
         (fun x => existT (fun _ => Unit) ( x , tt ) tt ).
       intro. auto. intro. destruct x. destruct u. destruct x.
       destruct u. auto.
-    
+    *)
